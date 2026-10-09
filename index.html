@@ -49,6 +49,9 @@
   .machine-summary .summary-tag{text-transform:none;letter-spacing:normal;font-size:0.85rem;color:var(--ink);}
   .machine-summary .summary-tag.stale{color:var(--alert);}
   .machine-summary b{color:var(--ink);font-size:0.85rem;text-transform:none;letter-spacing:normal;}
+  .machine-summary.machine-cost{margin-top:8px;gap:14px;font-size:0.66rem;}
+  .machine-summary.machine-cost b{font-size:0.78rem;}
+  .machine-summary.machine-cost b.plain{font-weight:400;}
   .icon-btn:hover{color:var(--claw-dark);}
 
   .live-config{background:var(--track);border-radius:10px;padding:12px 14px;margin-bottom:14px;}
@@ -670,8 +673,14 @@ function renderTrackedCard(server, prefs, key, prizes){
   if(thumbSrc.startsWith('//')) thumbSrc = 'https:' + thumbSrc;
   else if(thumbSrc.startsWith('/')) thumbSrc = 'https://tokyocatch.com' + thumbSrc;
   const thumb = thumbSrc ? `<img class="prize-thumb" src="${escapeAttr(thumbSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" />` : '';
+  // Ticket cost is N/A when the machine can't be played with a ticket;
+  // otherwise it is the prize's ticketCost. Unknown until TokyoCatch's next
+  // MACHINE_INIT for this prize arrives (shown as a dash).
+  const ticketText = server.isDisabledPlayByTicket ? 'N/A' : (server.ticketCost != null ? server.ticketCost : '—');
+  const gemText = server.gemCost != null ? server.gemCost : '—';
   const metaParts = [];
-  if(server.gemCost != null) metaParts.push(`Gem cost: <b>${escapeAttr(server.gemCost)}</b>`);
+  metaParts.push(`Ticket cost: <b>${escapeAttr(ticketText)}</b>`);
+  metaParts.push(`Gem cost: <b>${escapeAttr(gemText)}</b>`);
   if(server.machineType) metaParts.push(`Machine type: <b>${escapeAttr(server.machineType)}</b>`);
   if(server.prizeLabel) metaParts.push(`Label: <b class="prize-label${server.prizeLabel === 'LAST_CHANCE' ? ' last-chance' : ''}">${escapeAttr(server.prizeLabel)}</b>`);
   const switcher = prizes.length > 1 ? `
@@ -700,6 +709,10 @@ function renderTrackedCard(server, prefs, key, prizes){
       ${server.machineType === 'THREE_CLAW' && server.threeClawPayout != null ? `<span>Payout at <b>${server.threeClawPayout}</b></span>` : ''}
       ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
       ${server.prizeLabel ? `<span class="summary-tag">Label: ${escapeAttr(String(server.prizeLabel).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))}</span>` : ''}
+    </div>
+    <div class="machine-summary machine-cost">
+      <span>Ticket cost: <b class="plain">${escapeAttr(ticketText)}</b></span>
+      <span>Gem cost: <b>${escapeAttr(gemText)}</b></span>
     </div>
     </div></div>
     ` : `
