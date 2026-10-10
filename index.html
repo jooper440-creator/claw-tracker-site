@@ -49,9 +49,7 @@
   .machine-summary .summary-tag{text-transform:none;letter-spacing:normal;font-size:0.85rem;color:var(--ink);}
   .machine-summary .summary-tag.stale{color:var(--alert);}
   .machine-summary b{color:var(--ink);font-size:0.85rem;text-transform:none;letter-spacing:normal;}
-  .machine-summary.machine-cost{margin-top:8px;gap:14px;font-size:0.66rem;}
-  .machine-summary.machine-cost b{font-size:0.78rem;}
-  .machine-summary.machine-cost b.plain{font-weight:400;}
+  .machine-summary.machine-cost{margin-top:8px;}
   .icon-btn:hover{color:var(--claw-dark);}
 
   .live-config{background:var(--track);border-radius:10px;padding:12px 14px;margin-bottom:14px;}
@@ -348,10 +346,30 @@ function buildCards(){
   });
 }
 
+// Auto-arm: unless the person types their own number, the play-count alert
+// fires ALERT_LEAD plays before the machine's payout (payout 27 -> alert at 24).
+// The payout changes after every win, so the alert follows it with no re-arming.
+// Typing a number and clicking Set / re-arm switches to that number; Clear
+// switches back to auto.
+const ALERT_LEAD = 3;
+function autoAlertTarget(server){
+  const p = Number(server && server.threeClawPayout);
+  return (server && server.machineType === 'THREE_CLAW' && Number.isInteger(p) && p > ALERT_LEAD) ? p - ALERT_LEAD : null;
+}
+function alertTarget(prefs, server){
+  if(prefs.alertAuto){
+    const a = autoAlertTarget(server);
+    if(a != null) return a;
+  }
+  const t = Number(prefs.alertPlayTarget);
+  return Number.isInteger(t) && t > 0 ? t : null;
+}
+
 function defaultPrefs(){
   return {
     name: null,                    // null = fall back to the relay's prize title, then the key
     alertEnabled: false,
+    alertAuto: true,               // true = follow payout - ALERT_LEAD; false = use alertPlayTarget
     alertPlayTarget: null,
     alertPlayFired: false,
 
@@ -362,6 +380,7 @@ function defaultPrefs(){
 }
 function getPrefs(key){
   if(!localPrefs[key]) localPrefs[key] = defaultPrefs();
+  if(localPrefs[key].alertAuto === undefined) localPrefs[key].alertAuto = true;   // prefs saved before auto-arm existed
   return localPrefs[key];
 }
 function savePrefs(){
@@ -398,9 +417,9 @@ function playCountAlert(name, livePlays){
 // Personal alert threshold — checked locally against whatever livePlays the
 // relay just broadcast. alertPlayFired lives in localPrefs so it doesn't
 // re-fire every time this machine's update arrives.
-function checkPlayCountAlert(prefs, livePlays, name){
-  const target = Number(prefs.alertPlayTarget);
-  if(prefs.alertEnabled && Number.isInteger(target) && target > 0 &&
+function checkPlayCountAlert(prefs, livePlays, name, server){
+  const target = alertTarget(prefs, server);
+  if(prefs.alertEnabled && target != null &&
      !prefs.alertPlayFired && livePlays >= target){
     prefs.alertPlayFired = true;
     playCountAlert(name, livePlays);
@@ -519,7 +538,7 @@ function handleIncomingMachineUpdate(prev, next, key){
     savePrefs();
   }
 
-  checkPlayCountAlert(prefs, next.livePlays, name);
+  checkPlayCountAlert(prefs, next.livePlays, name, next);
 }
 
 // ---------------------------------------------------------------------------
@@ -676,6 +695,8 @@ function renderTrackedCard(server, prefs, key, prizes){
   // Ticket cost is N/A when the machine can't be played with a ticket;
   // otherwise it is the prize's ticketCost. Unknown until TokyoCatch's next
   // MACHINE_INIT for this prize arrives (shown as a dash).
+  const autoAt = prefs.alertAuto ? autoAlertTarget(server) : null;   // non-null = following the payout
+  const alertAt = alertTarget(prefs, server);
   const ticketText = server.isDisabledPlayByTicket ? 'N/A' : (server.ticketCost != null ? server.ticketCost : '—');
   const gemText = server.gemCost != null ? server.gemCost : '—';
   const metaParts = [];
@@ -705,14 +726,14 @@ function renderTrackedCard(server, prefs, key, prizes){
     ${collapsed ? `
     <div class="machine-summary">
       <span>Plays <b>${server.livePlays}</b></span>
-      <span>Alert at <b>${prefs.alertEnabled && prefs.alertPlayTarget ? prefs.alertPlayTarget : '—'}</b></span>
+      <span>Alert at <b>${prefs.alertEnabled && alertAt ? alertAt : '—'}</b></span>
       ${server.machineType === 'THREE_CLAW' && server.threeClawPayout != null ? `<span>Payout at <b>${server.threeClawPayout}</b></span>` : ''}
       ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
-      ${server.prizeLabel ? `<span class="summary-tag">Label: ${escapeAttr(String(server.prizeLabel).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))}</span>` : ''}
+      ${server.prizeLabel ? `<span>Label <b>${escapeAttr(String(server.prizeLabel).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))}</b></span>` : ''}
     </div>
     <div class="machine-summary machine-cost">
-      <span>Ticket cost: <b class="plain">${escapeAttr(ticketText)}</b></span>
-      <span>Gem cost: <b>${escapeAttr(gemText)}</b></span>
+      <span>Ticket cost <b>${escapeAttr(ticketText)}</b></span>
+      <span>Gem cost <b>${escapeAttr(gemText)}</b></span>
     </div>
     </div></div>
     ` : `
@@ -746,23 +767,22 @@ function renderTrackedCard(server, prefs, key, prizes){
       </div>
       ${prefs.alertSectionCollapsed ? `
       <div class="play-alert-status" style="margin-top:0;">
-        Minimized — still running in the background. ${prefs.alertEnabled && prefs.alertPlayTarget ? `Armed for play ${prefs.alertPlayTarget}; current count is ${server.livePlays}.` : 'Alert is disabled.'}
+        Minimized — still running in the background. ${prefs.alertEnabled && alertAt ? `Armed for play ${alertAt}; current count is ${server.livePlays}.` : 'Alert is disabled.'}
       </div>
       ` : `
       <div class="play-alert-row">
         <label class="play-alert-toggle">
           <input type="checkbox" ${prefs.alertEnabled ? 'checked' : ''} data-key="${key}" data-field="alertEnabled" /> Enable alert
         </label>
-        <input type="number" min="1" step="1" placeholder="Alert at play (e.g. 24)" value="${prefs.alertPlayTarget || ''}" data-key="${key}" data-field="alertPlayTarget" />
+        <input type="number" min="1" step="1" placeholder="Alert at play (e.g. 24)" value="${alertAt || ''}" data-key="${key}" data-field="alertPlayTarget" />
         <button class="ghost" data-key="${key}" data-action="set-alert">Set / re-arm</button>
-        <button class="ghost" data-key="${key}" data-action="test-alert">Test sound</button>
         <button class="ghost" data-key="${key}" data-action="clear-alert">Clear</button>
       </div>
-      <div class="play-alert-status ${prefs.alertEnabled && prefs.alertPlayTarget && !prefs.alertPlayFired ? 'armed' : ''}">
+      <div class="play-alert-status ${prefs.alertEnabled && alertAt && !prefs.alertPlayFired ? 'armed' : ''}">
         ${!prefs.alertEnabled ? 'Alert is disabled. Check Enable alert to use it for any machine type.' :
-          (!prefs.alertPlayTarget ? 'Enabled. Enter a play number and click Set / re-arm.' :
-          (prefs.alertPlayFired ? `Alert fired at play ${prefs.alertPlayTarget}. Set another target to re-arm.` :
-          `Armed for play ${prefs.alertPlayTarget}; current count is ${server.livePlays}. Machine type: ${escapeAttr(server.machineType || 'not identified')}.`))}
+          (!alertAt ? (prefs.alertAuto ? 'Enabled. This machine has no payout to follow yet, so enter a play number and click Set / re-arm.' : 'Enabled. Enter a play number and click Set / re-arm.') :
+          (prefs.alertPlayFired ? `Alert fired at play ${alertAt}. ${autoAt != null ? 'It re-arms by itself after the next win.' : 'Set another target to re-arm, or click Clear to go back to auto.'}` :
+          `Armed for play ${alertAt}${autoAt != null ? ` (auto: payout ${server.threeClawPayout} − ${ALERT_LEAD})` : ' (set by you)'}; current count is ${server.livePlays}. Machine type: ${escapeAttr(server.machineType || 'not identified')}.`))}
         <br><span style="font-style:italic;">Alert settings are personal to this browser — only you get the sound/notification.</span>
       </div>
       `}
@@ -794,9 +814,6 @@ function renderTrackedCard(server, prefs, key, prizes){
         </label>
         <button class="ghost" data-key="${key}" data-action="compute-payout">Compute</button>
         <button class="ghost" data-key="${key}" data-action="reset-payout">Reset to usual rate</button>
-      </div>
-      <div class="play-alert-status">
-        On a win, "Last Payout owed" and "Payout" both update automatically for everyone — measured against whatever Payout was predicted going into that round (or Usual rate if there's no history yet), not the fixed rate. A negative number means the win came later than predicted. <b>This whole tracker is shared</b> — once anyone sets the Usual Payout rate, everyone watching sees the same numbers with nothing else to set up.
       </div>
       `}
     </div>` : ''}
@@ -917,12 +934,21 @@ document.getElementById('machines').addEventListener('input', (e) => {
   if(field === 'alertEnabled'){
     prefs.alertEnabled = e.target.checked;
     savePrefs();
-    if(prefs.alertEnabled && server) checkPlayCountAlert(prefs, server.livePlays, prefs.name || key);
+    if(prefs.alertEnabled && server) checkPlayCountAlert(prefs, server.livePlays, prefs.name || key, server);
     render(); return;
   }
   if(field === 'alertPlayTarget'){
-    const v = Number(e.target.value);
-    prefs.alertPlayTarget = Number.isInteger(v) && v > 0 ? v : null;
+    // Typing their own number takes over from auto-arm; emptying the box goes
+    // back to auto. (No re-render here, so a click on Set / re-arm that caused
+    // this change event still lands on its button.)
+    const raw = String(e.target.value).trim();
+    if(raw === ''){
+      prefs.alertPlayTarget = null; prefs.alertAuto = true;
+    } else {
+      const v = Number(raw);
+      if(!Number.isInteger(v) || v < 1) return;   // invalid: Set / re-arm will explain
+      prefs.alertPlayTarget = v; prefs.alertAuto = false;
+    }
     prefs.alertPlayFired = false;
     savePrefs(); return;
   }
@@ -1056,13 +1082,22 @@ document.getElementById('machines').addEventListener('click', (e) => {
 
   if(action === 'set-alert'){
     const input = document.querySelector(`input[data-key="${key}"][data-field="alertPlayTarget"]`);
-    const v = Number(input && input.value);
-    if(!Number.isInteger(v) || v < 1){ alert('Enter a whole play number greater than 0.'); return; }
-    prefs.alertPlayTarget = v; prefs.alertPlayFired = false;
-    savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName); render(); return;
+    const raw = String((input && input.value) || '').trim();
+    if(raw === ''){
+      // Empty box = no number of your own, so follow the payout (auto) again.
+      prefs.alertPlayTarget = null; prefs.alertAuto = true; prefs.alertPlayFired = false;
+      savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName, server); render(); return;
+    }
+    const v = Number(raw);
+    if(!Number.isInteger(v) || v < 1){ alert('Enter a whole play number greater than 0, or leave the box empty to auto-set.'); return; }
+    prefs.alertPlayTarget = v; prefs.alertAuto = false; prefs.alertPlayFired = false;
+    savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName, server); render(); return;
   }
-  if(action === 'test-alert'){ playCountAlert(displayName, server.livePlays); return; }
-  if(action === 'clear-alert'){ prefs.alertPlayTarget = null; prefs.alertPlayFired = false; savePrefs(); render(); return; }
+  if(action === 'clear-alert'){
+    // Back to auto: forget the typed number and follow payout - ALERT_LEAD again.
+    prefs.alertPlayTarget = null; prefs.alertAuto = true; prefs.alertPlayFired = false;
+    savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName, server); render(); return;
+  }
   if(action === 'remove'){
     if(!confirm(`Remove prize "${displayName}"? This is shared — it will stop counting for everyone watching this dashboard. Any other prizes on this machine keep tracking.`)) return;
     sendToRelay({type:'stopTracking', data:{machineId: server.machineId, prizeId: server.prizeId}});
