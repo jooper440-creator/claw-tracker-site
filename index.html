@@ -44,6 +44,10 @@
   .card-head-main{flex:1;min-width:0;}
   .card-head-main .machine-top{margin-bottom:10px;}
   .prize-thumb{width:76px;height:76px;object-fit:cover;border-radius:6px;flex-shrink:0;background:#eee;}
+  .card-head-side{display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
+  .mini-links{display:flex;flex-direction:column;gap:6px;}
+  .mini-links button{width:100%;background:white;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:0.8rem;color:var(--claw-dark);cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;}
+  .mini-links button:hover{border-color:var(--claw);background:#fdf6ec;}
   .machine-summary{display:flex;gap:18px;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);}
   .machine-summary{flex-wrap:wrap;}
   .machine-summary .summary-tag{text-transform:none;letter-spacing:normal;font-size:0.85rem;color:var(--ink);}
@@ -270,6 +274,46 @@ let drafts = [];           // machines being added, not yet tracked by the relay
 
 try{ localPrefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') || {}; }catch(e){ localPrefs = {}; }
 
+// Play-count alert settings belong to the MACHINE, not to one prize: every
+// prize on a machine shares one play count, so switching the prize a card shows
+// must not switch the alert off. They are kept per machineId in their own
+// storage key, and each prize's prefs object reads/writes them through
+// accessors (see bindAlertFields) so the rest of the code is unchanged.
+const ALERTS_KEY = 'tc_machine_alerts_v1';
+const ALERT_FIELDS = ['alertEnabled', 'alertAuto', 'alertPlayTarget', 'alertPlayFired'];
+let machineAlerts = {};    // machineId -> {alertEnabled, alertAuto, alertPlayTarget, alertPlayFired}
+try{ machineAlerts = JSON.parse(localStorage.getItem(ALERTS_KEY) || '{}') || {}; }catch(e){ machineAlerts = {}; }
+function machineAlert(machineId){
+  if(!machineAlerts[machineId]) machineAlerts[machineId] = {alertEnabled: false, alertAuto: true, alertPlayTarget: null, alertPlayFired: false};
+  return machineAlerts[machineId];
+}
+function bindAlertFields(prefs, machineId){
+  ALERT_FIELDS.forEach(f => Object.defineProperty(prefs, f, {
+    configurable: true, enumerable: false,   // not saved per prize
+    get(){ return machineAlert(machineId)[f]; },
+    set(v){ machineAlert(machineId)[f] = v; },
+  }));
+}
+// One-time: alert settings saved per prize by earlier versions move to their
+// machine (an enabled one wins if a machine's prizes disagreed).
+(function migrateAlertPrefs(){
+  let moved = false;
+  Object.keys(localPrefs).forEach(key => {
+    const raw = localPrefs[key];
+    if(!raw || typeof raw !== 'object' || !ALERT_FIELDS.some(f => Object.prototype.hasOwnProperty.call(raw, f))) return;
+    const machineId = key.split(':')[0];
+    if(raw.alertEnabled && !(machineAlerts[machineId] && machineAlerts[machineId].alertEnabled)){
+      machineAlerts[machineId] = {alertEnabled: true, alertAuto: raw.alertAuto !== false,
+        alertPlayTarget: raw.alertPlayTarget == null ? null : raw.alertPlayTarget, alertPlayFired: !!raw.alertPlayFired};
+    }
+    ALERT_FIELDS.forEach(f => delete raw[f]);
+    moved = true;
+  });
+  if(moved){
+    try{ localStorage.setItem(ALERTS_KEY, JSON.stringify(machineAlerts)); localStorage.setItem(PREFS_KEY, JSON.stringify(localPrefs)); }catch(e){ console.error('Storage error', e); }
+  }
+})();
+
 // ---------------------------------------------------------------------------
 // Categories — grouped by the prize title's prefix (e.g. "Figure - ..." ->
 // "Figures"), which is shared relay data, so every browser derives the same
@@ -373,10 +417,8 @@ function alertTarget(prefs, server){
 function defaultPrefs(){
   return {
     name: null,                    // null = fall back to the relay's prize title, then the key
-    alertEnabled: false,
-    alertAuto: true,               // true = follow payout - ALERT_LEAD; false = use alertPlayTarget
-    alertPlayTarget: null,
-    alertPlayFired: false,
+    // (alert settings are per machine: alertEnabled, alertAuto — true = follow
+    // payout - ALERT_LEAD, false = use alertPlayTarget — alertPlayTarget, alertPlayFired)
 
     collapsed: false,
     alertSectionCollapsed: false,
@@ -385,11 +427,11 @@ function defaultPrefs(){
 }
 function getPrefs(key){
   if(!localPrefs[key]) localPrefs[key] = defaultPrefs();
-  if(localPrefs[key].alertAuto === undefined) localPrefs[key].alertAuto = true;   // prefs saved before auto-arm existed
+  bindAlertFields(localPrefs[key], key.split(':')[0]);   // re-bound on every call, so a re-pointed card follows its new machine
   return localPrefs[key];
 }
 function savePrefs(){
-  try{ localStorage.setItem(PREFS_KEY, JSON.stringify(localPrefs)); }catch(e){ console.error('Storage error', e); }
+  try{ localStorage.setItem(PREFS_KEY, JSON.stringify(localPrefs)); localStorage.setItem(ALERTS_KEY, JSON.stringify(machineAlerts)); }catch(e){ console.error('Storage error', e); }
 }
 
 function fmtTime(iso){
@@ -527,13 +569,15 @@ function sendToRelay(obj){
 // Local-only side effects of a machineUpdate: sound/notification alerts and
 // the THREE_CLAW payout math both depend on this browser's personal
 // settings, so they're computed here rather than trusted from the server.
+const winNotified = {};   // machineId -> time of the win already announced
 function handleIncomingMachineUpdate(prev, next, key){
   const prefs = getPrefs(key);
   const name = prefs.name || next.prizeTitleEn || next.prizeTitleJa || key;
 
   const prevWinTime = prev && prev.lastAutoWin ? prev.lastAutoWin.time : null;
   const nextWinTime = next.lastAutoWin ? next.lastAutoWin.time : null;
-  if(nextWinTime && nextWinTime !== prevWinTime){
+  if(nextWinTime && nextWinTime !== prevWinTime && winNotified[next.machineId] !== nextWinTime){
+    winNotified[next.machineId] = nextWinTime;   // a machine's prizes all report the same win; tell the person once
     beep();
     notify(`${name}: win detected!`, `Won after ${next.lastAutoWin.count} play${next.lastAutoWin.count === 1 ? '' : 's'} — ${playerNameFor(next.lastAutoWin.player) || 'unknown player'}.`);
     // THREE_CLAW payout math is computed by the relay now (shared —
@@ -725,7 +769,13 @@ function renderTrackedCard(server, prefs, key, prizes){
 
   return `
     <div class="card-head">
+    <div class="card-head-side">
     ${thumb}
+    ${collapsed && server.machineId && server.prizeId ? `<div class="mini-links">
+      <button data-key="${key}" data-action="open-tokyocatch" title="Open this prize on TokyoCatch (opens in a new tab)">🐙 TCatch</button>
+      <button data-key="${key}" data-action="open-toreba" title="Open the Toreba.Plus Annex history for this prize (opens in a new tab)">📊 Annex</button>
+    </div>` : ''}
+    </div>
     <div class="card-head-main">
     <div class="machine-top">
       ${collapsed
