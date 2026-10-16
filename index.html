@@ -150,9 +150,8 @@
   .category-row input{flex:1;border:1px solid var(--line);background:white;border-radius:6px;padding:6px 9px;font-size:0.85rem;font-family:inherit;}
 
   /* ---- Layout: two-column card grid ---- */
-  .card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+  .card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}
   .card-grid .machine{margin-bottom:0;padding:16px 16px 14px;}
-  .card-grid .machine.expanded{grid-column:1/-1;}
   @media (max-width:760px){.card-grid{grid-template-columns:1fr;}}
 
   /* ---- Smaller titles, smaller thumbnails ---- */
@@ -181,6 +180,56 @@
   .cat-section .machine.alerting{border-color:var(--alert);border-left-color:var(--alert);}
   .cat-section .category-header h2{display:flex;align-items:center;gap:8px;color:hsl(var(--h) 55% 28%);}
   .cat-section .category-header h2::before{content:"";width:14px;height:14px;border-radius:50%;background:hsl(var(--h) 55% 50%);}
+
+  /* ---- Card / section buttons are visibly different ---- */
+  .card-toggle{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer;flex-shrink:0;}
+  .card-toggle:hover{color:var(--claw-dark);border-color:var(--claw);}
+  .card-toggle svg, .tool-btn svg{pointer-events:none;display:block;}
+  .cat-toggle{border:none;border-radius:999px;padding:6px 14px;font-size:.78rem;font-weight:700;color:#fff;background:hsl(var(--h) 55% 45%);cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .cat-toggle:hover{background:hsl(var(--h) 55% 34%);}
+  .toolbar{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:0 0 4px;font-size:.78rem;color:var(--muted);}
+  .tool-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:.78rem;color:var(--ink);cursor:pointer;font-family:inherit;}
+  .tool-btn:hover{border-color:var(--claw);}
+
+  /* ---- Drag and drop ---- */
+  .drag-handle{cursor:grab;color:var(--muted);user-select:none;font-size:1rem;line-height:1;letter-spacing:-3px;padding:4px 6px 4px 0;flex-shrink:0;}
+  .drag-handle:active{cursor:grabbing;}
+  .machine.dragging{opacity:.4;}
+  .machine.drop-before{box-shadow:-6px 0 0 0 var(--claw);}
+  .machine.drop-after{box-shadow:6px 0 0 0 var(--claw);}
+  .cat-section.drop-into{outline:2px dashed hsl(var(--h) 55% 50%);outline-offset:6px;border-radius:14px;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:.85rem;display:flex;gap:14px;align-items:center;z-index:50;box-shadow:0 6px 24px rgba(0,0,0,.25);}
+  .toast button{background:none;border:none;color:#ffd9a0;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;}
+
+  /* ---- Expanded card: compact body, settings tucked into sections ---- */
+  .x-body{display:flex;flex-direction:column;gap:10px;}
+  .x-titles{font-size:.76rem;color:var(--muted);line-height:1.4;margin-top:2px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{font-size:.74rem;background:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--muted);}
+  .chip b{color:var(--ink);}
+  .chip.last-chance{background:#fbecc8;border-color:#ecd18a;color:#8a5a00;}
+  .chip.warn{background:#fdeceb;border-color:#e2a89a;color:#8a2c1c;}
+  .warn-box{background:#fdeceb;border:1px solid #e2a89a;border-radius:10px;padding:8px 12px;font-size:.8rem;color:#8a2c1c;line-height:1.45;}
+  .live-line{font-size:.85rem;display:flex;flex-direction:column;gap:3px;}
+  .muted{color:var(--muted);}
+  .x-body .prize-actions{display:flex;gap:8px;}
+  .x-body .prize-actions select{flex:1;min-width:0;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 8px;font-size:.82rem;font-family:inherit;color:var(--ink);}
+  .sect{background:#fff;border:1px solid var(--line);border-radius:10px;margin:0;}
+  .sect > summary{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:.85rem;font-weight:600;color:var(--ink);list-style:none;}
+  .sect > summary::-webkit-details-marker{display:none;}
+  .sect > summary::after{content:"▾";color:var(--muted);}
+  .sect[open] > summary::after{content:"▴";}
+  .sect-status{font-weight:500;color:var(--muted);font-size:.76rem;margin-left:auto;}
+  .sect-body{padding:2px 12px 12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+  .sect-body .play-alert-row{width:100%;}
+  .sect-body .play-alert-row input[type="number"]{width:120px;padding:6px 8px;}
+  .sect-body button.ghost{padding:6px 12px;font-size:.82rem;}
+  .sect-body .play-alert-status{margin-top:0;}
+  .sect-body .category-row, .sect-body .live-config{width:100%;margin-bottom:0;}
+  .sect-body .history{margin-top:0;border-top:none;padding-top:0;width:100%;}
+  .mini-field{display:flex;flex-direction:column;gap:3px;font-size:.74rem;color:var(--muted);}
+  .mini-field input{width:90px !important;}
+  .payout-val{font-weight:800;font-size:1.1rem;padding:5px 0;color:var(--ink);}
 </style>
 </head>
 <body>
@@ -199,6 +248,11 @@
 
   <button class="add-machine" id="addBtn">+ Add a machine to track</button>
 
+  <div class="toolbar">
+    <span>All cards:</span>
+    <button class="tool-btn" data-tool="collapse-all" title="Collapse all cards (sections stay as they are)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 7l5-5 5 5M3 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Collapse</button>
+    <button class="tool-btn" data-tool="expand-all" title="Expand all cards (sections stay as they are)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3l5 5 5-5M3 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand</button>
+  </div>
   <div id="machines"><div class="loading">Connecting to relay…</div></div>
 </div>
 
@@ -378,6 +432,12 @@ function deriveCategory(prizeTitleEn){
 function categoryFor(server){
   return server.category || deriveCategory(server.prizeTitleEn) || 'Others';
 }
+const CARD_ORDER_KEY = 'tc_card_order_v1';
+let cardOrder = [];
+try{ cardOrder = JSON.parse(localStorage.getItem(CARD_ORDER_KEY) || '[]') || []; }catch(e){ cardOrder = []; }
+function saveCardOrder(){
+  try{ localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(cardOrder)); }catch(e){ console.error('Storage error', e); }
+}
 function groupMachinesByCategory(list){
   const groups = new Map();
   list.forEach(card => {
@@ -385,6 +445,9 @@ function groupMachinesByCategory(list){
     if(!groups.has(cat)) groups.set(cat, []);
     groups.get(cat).push(card);
   });
+  // Within a section, cards follow the personal drag-and-drop order (new cards go last).
+  const rank = id => { const i = cardOrder.indexOf(id); return i < 0 ? cardOrder.length : i; };
+  groups.forEach(arr => arr.sort((a, b) => rank(a.machineId) - rank(b.machineId)));
   // Stable order (first-seen), but "Others" always sorts last.
   return Array.from(groups.entries())
     .map(([category, machines]) => ({category, machines}))
@@ -630,7 +693,7 @@ function notificationStatusLabel(){
   if(!window.Notification) return 'Desktop notifications: not supported by this browser';
   if(Notification.permission === 'granted') return 'Desktop notifications: enabled ✓';
   if(Notification.permission === 'denied') return 'Desktop notifications: blocked — check the padlock icon next to the address bar, or your OS notification settings for this browser';
-  return 'Desktop notifications: not yet enabled — click "Enable browser notifications" on any card';
+  return 'Desktop notifications: not yet enabled — open the 🔔 Alert section on any card and click "Enable browser notifications"';
 }
 
 function updateGlobalBar(){
@@ -690,6 +753,7 @@ function render(){
   groupMachinesByCategory(buildCards()).forEach(({category, machines}) => {
     const section = document.createElement('div');
     section.className = 'cat-section';
+    section.dataset.category = category;
     section.style.setProperty('--h', catHue(category));
     section.innerHTML = renderCategorySection(category, machines);
     root.appendChild(section);
@@ -712,7 +776,7 @@ function renderCategorySection(category, machines){
     return `
       <div class="category-header">
         <h2>${escCat}</h2>
-        <button class="icon-btn" data-action="toggle-category" data-category="${escCat}">Expand ▾</button>
+        <button class="cat-toggle" data-action="toggle-category" data-category="${escCat}" title="Show this section's cards">▾ Show section</button>
       </div>
       <div class="category-summary"><span>currently tracking ${count} item${count === 1 ? '' : 's'}</span>${extraHtml}</div>
     `;
@@ -721,7 +785,7 @@ function renderCategorySection(category, machines){
   let html = `
     <div class="category-header">
       <h2>${escCat}</h2>
-      <button class="icon-btn" data-action="toggle-category" data-category="${escCat}">Collapse ▲</button>
+      <button class="cat-toggle" data-action="toggle-category" data-category="${escCat}" title="Hide this whole section">▴ Hide section</button>
     </div>
   `;
   html += '<div class="card-grid">';
@@ -730,7 +794,7 @@ function renderCategorySection(category, machines){
     const key = machineKey(server.machineId, server.prizeId);
     const prefs = getPrefs(key);
     const isCollapsed = getGroupPrefs(server.machineId).collapsed;
-    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}${isCollapsed ? '' : ' expanded'}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
+    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}${isCollapsed ? '' : ' expanded'}" data-machine="${escapeAttr(server.machineId)}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
   });
   html += '</div>';
   return html;
@@ -773,6 +837,9 @@ function renderDraftCard(d){
     </div>
   `;
 }
+
+const ICON_UP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_DOWN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function renderTrackedCard(server, prefs, key, prizes){
   const displayName = prefs.name || server.prizeTitleEn || server.prizeTitleJa || key;
@@ -825,198 +892,148 @@ function renderTrackedCard(server, prefs, key, prizes){
         ${prizes.map(p => `<option value="${p.prizeId}" ${p.prizeId === server.prizeId ? 'selected' : ''}>${p.prizeStale ? '⚠️ ' : ''}${escapeAttr(prizeName(p))} — ${p.livePlays} play${p.livePlays === 1 ? '' : 's'}</option>`).join('')}
       </select>` : '';
 
-  return `
-    <div class="card-head">
-    <div class="card-head-side">
-    ${thumb}
-    ${collapsed && server.machineId && server.prizeId ? `<div class="mini-links">
-      <button data-key="${key}" data-action="open-tokyocatch" title="Open this prize on TokyoCatch (opens in a new tab)">🐙 TCatch</button>
-      <button data-key="${key}" data-action="open-toreba" title="Open the Toreba.Plus Annex history for this prize (opens in a new tab)">📊 Annex</button>
-    </div>` : ''}
-    </div>
-    <div class="card-head-main">
-    <div class="machine-top">
-      ${collapsed
-        ? `<div class="machine-name-static" title="${escapeAttr(displayName)}">${escapeAttr(displayName)}</div>`
-        : `<input class="machine-name" value="${escapeAttr(prefs.name || '')}" placeholder="${escapeAttr(server.prizeTitleEn || server.prizeTitleJa || 'New machine')}" data-key="${key}" data-field="name" />`}
-      <div class="top-actions">
-        <button class="icon-btn" data-key="${key}" data-action="toggle-collapse">${collapsed ? 'Expand ▾' : 'Collapse ▲'}</button>
-      </div>
-    </div>
-    ${collapsed ? '' : '</div></div>'}
+  const esc = escapeAttr;
+  const prettify = v => String(v).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const q = lastFields.queuedUsers || [];
+  const alertState = !prefs.alertEnabled ? 'off' : (!alertAt ? 'on, no target' : (prefs.alertPlayFired ? `fired at ${alertAt}` : `armed at ${alertAt}`));
+  const sect = (flag, title, status, body) => `
+    <details class="sect" data-sect="${flag}" data-key="${key}" ${prefs[flag] ? 'open' : ''}>
+      <summary><span>${title}</span><span class="sect-status">${status}</span></summary>
+      <div class="sect-body">${body}</div>
+    </details>`;
 
-    ${collapsed ? `
+  const stats = `
     <div class="stat-row">
       <div class="stat heat-${heat}"><div class="stat-num">${plays}${target != null ? `<span class="stat-slash">/</span>${target}` : ''}</div><div class="stat-cap">Plays${target != null ? ' / Target' : ''}${toGo ? ' · ' + toGo : ''}</div></div>
       ${prefs.alertEnabled && alertAt != null && alertAt !== target ? `<div class="stat stat-small"><div class="stat-num">${alertAt}</div><div class="stat-cap">Alert at</div></div>` : ''}
-    </div>
-    <div class="machine-summary">
-      ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
-      ${server.prizeLabel ? `<span>Label <b>${escapeAttr(String(server.prizeLabel).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))}</b></span>` : ''}
-    </div>
-    <div class="machine-summary machine-cost">
-      <span>Ticket cost <b>${escapeAttr(ticketText)}</b></span>
-      <span>Gem cost <b>${escapeAttr(gemText)}</b></span>
-    </div>
-    ${prizes.length > 1 ? `<div class="prize-others">${prizes.filter(p => p.prizeId !== server.prizeId).map(otherPrizeThumb).join('')}</div>` : ''}
-    </div></div>
-    ` : `
-    <div class="category-row">
-      <label>Category</label>
-      <input type="text" value="${escapeAttr(server.category || '')}" placeholder="${escapeAttr(deriveCategory(server.prizeTitleEn))} (auto, from prize title)" data-key="${key}" data-field="category" />
-    </div>
-    <div class="link-hint" style="margin-top:-8px;margin-bottom:14px;">Shared — moves this card for everyone watching. Leave blank to auto-detect from the prize title.</div>
-    ${server.prizeStale ? `
-    <div class="play-alert" style="background:#fdeceb;border-color:#e2a89a;">
-      <div class="play-alert-title" style="color:#8a2c1c;">⚠️ Prize no longer on this machine</div>
-      <div style="font-size:0.85rem;color:var(--ink);line-height:1.5;">
-        TokyoCatch reports <b>IrrelevantPrizeForMachine</b> — this machine has moved on to a different prize than the one being tracked here (Prize ID <code>${escapeAttr(server.prizeId)}</code>). ${prizes.length > 1 ? 'The play count, history and payout are <b>shared</b> with this machine\'s other prize(s), so counting carries on there and the numbers on this card stay in step.' : server.dataSinceStale ? 'Plays are <b>still being counted</b> for everyone watching, but they may belong to the machine\'s new prize.' : 'TokyoCatch is <b>not sending play data</b> for this prize any more, so <b>no new plays are being counted</b> here. Your existing count and history are kept.'} To track the machine's current prize, add its link with "+ Add a machine to track" — it will join this card.
-      </div>
-    </div>` : ''}
+    </div>`;
+  const links = server.machineId && server.prizeId ? `<div class="mini-links">
+      <button data-key="${key}" data-action="open-tokyocatch" title="Open this prize on TokyoCatch (new tab)">🐙 TCatch</button>
+      <button data-key="${key}" data-action="open-toreba" title="Open the Toreba.Plus Annex history (new tab)">📊 Annex</button>
+    </div>` : '';
+  const nameEl = collapsed
+    ? `<div class="machine-name-static" title="${esc(displayName)}">${esc(displayName)}</div>`
+    : `<input class="machine-name" value="${esc(prefs.name || '')}" placeholder="${esc(server.prizeTitleEn || server.prizeTitleJa || 'New machine')}" data-key="${key}" data-field="name" />`;
+  const head = `
+    <div class="card-head">
+      <div class="card-head-side">${thumb}${links}</div>
+      <div class="card-head-main">
+        <div class="machine-top">
+          <span class="drag-handle" draggable="true" title="Drag to reorder, or drop into another section" aria-label="Drag handle">⋮⋮</span>
+          ${nameEl}
+          <div class="top-actions">
+            <button class="card-toggle" data-key="${key}" data-action="toggle-collapse" title="${collapsed ? 'Expand this card' : 'Collapse this card'}" aria-label="${collapsed ? 'Expand this card' : 'Collapse this card'}">${collapsed ? ICON_DOWN : ICON_UP}</button>
+          </div>
+        </div>
+        ${stats}`;
 
-    <div class="prize-info">
-      ${server.prizeTitleEn ? `<div class="prize-title-en">${escapeAttr(server.prizeTitleEn)}</div>` : ''}
-      ${server.prizeTitleJa ? `<div class="prize-title-ja">${escapeAttr(server.prizeTitleJa)}</div>` : ''}
-      ${!server.prizeTitleEn && !server.prizeTitleJa ? `<div class="prize-title-en">Prize ${escapeAttr(server.prizeId)}</div>` : ''}
-      ${metaParts.length ? `<div class="prize-meta">${metaParts.join(' &nbsp;·&nbsp; ')}</div>` : ''}
-      <div class="prize-actions">${switcher}
-        <button class="ghost danger" data-key="${key}" data-action="remove">Remove Prize</button>
+  if(collapsed){
+    return head + `
+        <div class="machine-summary">
+          ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
+          ${server.prizeLabel ? `<span>Label <b>${esc(prettify(server.prizeLabel))}</b></span>` : ''}
+        </div>
+        <div class="machine-summary machine-cost">
+          <span>Ticket cost <b>${esc(ticketText)}</b></span>
+          <span>Gem cost <b>${esc(gemText)}</b></span>
+        </div>
+        ${prizes.length > 1 ? `<div class="prize-others">${prizes.filter(p => p.prizeId !== server.prizeId).map(otherPrizeThumb).join('')}</div>` : ''}
       </div>
-    </div>
+    </div>`;
+  }
 
-    <div class="play-alert">
-      <div class="play-alert-title-row">
-        <div class="play-alert-title">🔔 Play-count sound alert</div>
-        <button class="icon-btn" data-key="${key}" data-action="toggle-alert-section">${prefs.alertSectionCollapsed ? 'Show ▾' : 'Hide ▲'}</button>
-      </div>
-      ${prefs.alertSectionCollapsed ? `
-      <div class="play-alert-status" style="margin-top:0;">
-        Minimized — still running in the background. ${prefs.alertEnabled && alertAt ? `Armed for play ${alertAt}; current count is ${server.livePlays}.` : 'Alert is disabled.'}
-      </div>
-      ` : `
+  const chips = [
+    `<span class="chip">Ticket <b>${esc(ticketText)}</b></span>`,
+    `<span class="chip">Gem <b>${esc(gemText)}</b></span>`,
+    server.machineType ? `<span class="chip">${esc(prettify(server.machineType))}</span>` : '',
+    server.prizeLabel ? `<span class="chip${server.prizeLabel === 'LAST_CHANCE' ? ' last-chance' : ''}">${esc(prettify(server.prizeLabel))}</span>` : '',
+    server.prizeStale ? `<span class="chip warn">Irrelevant prize</span>` : ''
+  ].join('');
+  const titles = (prefs.name && server.prizeTitleEn ? `<div>${esc(server.prizeTitleEn)}</div>` : '') + (server.prizeTitleJa ? `<div>${esc(server.prizeTitleJa)}</div>` : '');
+
+  const alertBody = `
       <div class="play-alert-row">
-        <label class="play-alert-toggle">
-          <input type="checkbox" ${prefs.alertEnabled ? 'checked' : ''} data-key="${key}" data-field="alertEnabled" /> Enable alert
-        </label>
-        <input type="number" min="1" step="1" placeholder="Alert at play (e.g. 24)" value="${alertAt || ''}" data-key="${key}" data-field="alertPlayTarget" />
-        <button class="ghost" data-key="${key}" data-action="set-alert">Set / re-arm</button>
-        <button class="ghost" data-key="${key}" data-action="clear-alert">Clear</button>
+        <label class="play-alert-toggle"><input type="checkbox" ${prefs.alertEnabled ? 'checked' : ''} data-key="${key}" data-field="alertEnabled" /> On</label>
+        <input type="number" min="1" step="1" placeholder="Alert at play" value="${alertAt || ''}" data-key="${key}" data-field="alertPlayTarget" />
+        <button class="ghost" data-key="${key}" data-action="set-alert" title="Set / re-arm">Set</button>
+        <button class="ghost" data-key="${key}" data-action="clear-alert" title="Clear (back to auto)">Clear</button>
       </div>
       <div class="play-alert-status ${prefs.alertEnabled && alertAt && !prefs.alertPlayFired ? 'armed' : ''}">
-        ${!prefs.alertEnabled ? 'Alert is disabled. Check Enable alert to use it for any machine type.' :
-          (!alertAt ? (prefs.alertAuto ? 'Enabled. This machine has no payout to follow yet, so enter a play number and click Set / re-arm.' : 'Enabled. Enter a play number and click Set / re-arm.') :
-          (prefs.alertPlayFired ? `Alert fired at play ${alertAt}. ${autoAt != null ? 'It re-arms by itself after the next win.' : 'Set another target to re-arm, or click Clear to go back to auto.'}` :
-          `Armed for play ${alertAt}${autoAt != null ? ` (auto: payout ${server.threeClawPayout} − ${ALERT_LEAD})` : ' (set by you)'}; current count is ${server.livePlays}. Machine type: ${escapeAttr(server.machineType || 'not identified')}.`))}
-        <br><span style="font-style:italic;">Alert settings are personal to this browser — only you get the sound/notification.</span>
+        ${!prefs.alertEnabled ? 'Off. Tick “On” for a sound alert.' :
+          (!alertAt ? 'No payout to follow yet. Enter a play number and press Set.' :
+          (prefs.alertPlayFired ? `Fired at play ${alertAt}. ${autoAt != null ? 'Re-arms after the next win.' : 'Set a new target, or Clear for auto.'}` :
+          `Armed at play ${alertAt}${autoAt != null ? ` (payout ${server.threeClawPayout} − ${ALERT_LEAD})` : ' (your number)'} · now ${server.livePlays}.`))}
+        <span class="muted">Only you get the sound.</span>
       </div>
-      `}
-    </div>
+      ${window.Notification && Notification.permission === 'granted' ? '' : `<button class="ghost" data-key="${key}" data-action="notifperm">Enable browser notifications</button>`}`;
 
-    ${server.machineType === 'THREE_CLAW' ? `
-    <div class="play-alert">
-      <div class="play-alert-title-row">
-        <div class="play-alert-title">🎯 Fixed payout tracker (THREE_CLAW)</div>
-        <button class="icon-btn" data-key="${key}" data-action="toggle-payout-section">${prefs.payoutSectionCollapsed ? 'Show ▾' : 'Hide ▲'}</button>
-      </div>
-      ${prefs.payoutSectionCollapsed ? `
-      <div class="play-alert-status" style="margin-top:0;">
-        Minimized — still running in the background. Payout: <b>${server.threeClawPayout != null ? server.threeClawPayout : '—'}</b>
-      </div>
-      ` : `
+  const payoutBody = `
       <div class="play-alert-row">
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.8rem;color:var(--muted);">
-          Usual Payout rate
-          <input type="number" min="1" step="1" placeholder="28" value="${server.threeClawUsualRate != null ? server.threeClawUsualRate : ''}" data-key="${key}" data-field="threeClawUsualRate" style="width:120px;" />
+        <label class="mini-field">Usual rate
+          <input type="number" min="1" step="1" placeholder="28" value="${server.threeClawUsualRate != null ? server.threeClawUsualRate : ''}" data-key="${key}" data-field="threeClawUsualRate" />
         </label>
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.8rem;color:var(--muted);">
-          Last Payout owed
-          <input type="number" step="1" value="${server.threeClawLastPayoutOwed != null ? server.threeClawLastPayoutOwed : ''}" data-key="${key}" data-field="threeClawLastPayoutOwed" style="width:120px;" />
+        <label class="mini-field">Last owed
+          <input type="number" step="1" value="${server.threeClawLastPayoutOwed != null ? server.threeClawLastPayoutOwed : ''}" data-key="${key}" data-field="threeClawLastPayoutOwed" />
         </label>
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.8rem;color:var(--muted);">
-          Payout
-          <div style="font-weight:800;font-size:1.1rem;padding:6px 0;">${server.threeClawPayout != null ? server.threeClawPayout : '—'}</div>
+        <label class="mini-field">Payout
+          <div class="payout-val">${server.threeClawPayout != null ? server.threeClawPayout : '—'}</div>
         </label>
         <button class="ghost" data-key="${key}" data-action="compute-payout">Compute</button>
-        <button class="ghost" data-key="${key}" data-action="reset-payout">Reset to usual rate</button>
+        <button class="ghost" data-key="${key}" data-action="reset-payout">Reset to usual</button>
+      </div>`;
+
+  const manageBody = `
+      <div class="category-row">
+        <label>Category</label>
+        <input type="text" value="${esc(server.category || '')}" placeholder="${esc(deriveCategory(server.prizeTitleEn))} (auto)" data-key="${key}" data-field="category" />
       </div>
-      `}
-    </div>` : ''}
-
-    ${server.machineId && server.prizeId ? `
-    <div class="quick-links">
-      <button data-key="${key}" data-action="open-tokyocatch" title="Open TokyoCatch without closing the tracker">🐙 TokyoCatch</button>
-      <button data-key="${key}" data-action="open-toreba" title="Open Toreba.Plus Annex history without closing the tracker">📊 Toreba.Plus Annex</button>
-    </div>` : ''}
-
-    <div class="live-config">
-      <label>TokyoCatch prize link</label>
-      <input type="text" placeholder="Paste the corrected prize link here if this machine has moved on" value="${escapeAttr(`https://tokyocatch.com/game/${server.machineId}-${server.prizeId}`)}" data-key="${key}" data-field="gameLink" />
-      <div class="row">
-        <div>
-          <label>Machine ID</label>
-          <input type="text" placeholder="Machine ID" value="${escapeAttr(server.machineId)}" data-key="${key}" data-field="machineId" />
+      <div class="link-hint">Shared with everyone. Blank = auto from the prize title. You can also drag the card.</div>
+      <div class="live-config">
+        <label>TokyoCatch prize link</label>
+        <input type="text" placeholder="Paste a corrected prize link if this machine has moved on" value="${esc(`https://tokyocatch.com/game/${server.machineId}-${server.prizeId}`)}" data-key="${key}" data-field="gameLink" />
+        <div class="row">
+          <div><label>Machine ID</label><input type="text" placeholder="Machine ID" value="${esc(server.machineId)}" data-key="${key}" data-field="machineId" /></div>
+          <div><label>Prize ID</label><input type="text" placeholder="Prize ID" value="${esc(server.prizeId)}" data-key="${key}" data-field="prizeId" /></div>
         </div>
-        <div>
-          <label>Prize ID</label>
-          <input type="text" placeholder="Prize ID" value="${escapeAttr(server.prizeId)}" data-key="${key}" data-field="prizeId" />
-        </div>
+        <div class="link-hint ok">Editing these re-points this card at a different machine/prize.</div>
+        ${server.liveStatus ? `<div class="live-status ${server.liveStatus.ok ? 'ok' : 'err'}">${esc(server.liveStatus.msg)}</div>` : '<div class="live-status">Not connected yet.</div>'}
+        ${server.lastFields ? `<div class="live-fields"><span>status: <b>${esc(lastFields.status || '—')}</b></span><span>viewers: <b>${lastFields.viewerCount ?? '—'}</b></span><span>maintenance: <b>${lastFields.isMaintenance ? 'yes' : 'no'}</b></span></div>` : ''}
       </div>
-      <div class="link-hint ok">Editing these re-points this card at a different machine/prize (stops tracking the old pair, starts tracking the new one) — mainly useful to recover from the stale-prize warning above.</div>
-      ${server.liveStatus ? `<div class="live-status ${server.liveStatus.ok ? 'ok' : 'err'}">${escapeAttr(server.liveStatus.msg)}</div>` : '<div class="live-status">Not connected yet.</div>'}
-      ${server.lastFields ? `<div class="live-fields"><span>status: <b>${escapeAttr(lastFields.status || '—')}</b></span><span>viewers: <b>${lastFields.viewerCount ?? '—'}</b></span><span>maintenance: <b>${lastFields.isMaintenance ? 'yes' : 'no'}</b></span>${lastFields.currentPlayingUser ? `<span>current player: <b>${taggedPlayerHtml(lastFields.currentPlayingUser.id)}</b></span>` : ''}</div>` : ''}
+      <button class="ghost danger" data-key="${key}" data-action="remove">Remove prize</button>`;
+
+  const historyBody = history.length === 0
+    ? (server.historyTotal > 0 ? '<div class="hist-empty">Loading history…</div>' : '<div class="hist-empty">No entries yet — plays will appear here as they happen.</div>')
+    : `<div class="history"><table class="step-table">
+        <thead><tr><th class="step-num">Step</th><th>Played by</th><th>Play time</th></tr></thead>
+        <tbody>
+        ${history.slice().reverse().slice(0,80).map(h => `
+          <tr class="${h.isWin ? 'win' : ''}">
+            <td class="step-num">${h.step}: ${h.isWin ? '<span class="trophy">🏆</span>' : '<span class="lose-x">✕</span>'}</td>
+            <td>${h.player ? `<span class="player-link">${taggedPlayerHtml(h.player)}</span>` : '<span style="color:var(--muted);font-style:italic;">unknown</span>'}</td>
+            <td><span class="time-link">${fmtTime(h.t)}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+
+  return head + `
+        ${titles ? `<div class="x-titles">${titles}</div>` : ''}
+      </div>
     </div>
-
-    <div class="simple-readout">
-      <div class="box">
-        <div class="num heat-${heat}">${server.livePlays}</div>
-        <div class="cap">Plays counted since last win</div>
+    <div class="x-body">
+      <div class="chips">${chips}</div>
+      ${server.prizeStale ? `<div class="warn-box"><b>⚠️ Prize no longer on this machine.</b> ${prizes.length > 1 ? 'Counting carries on via this machine’s other prize(s).' : server.dataSinceStale ? 'Plays are still counted but may belong to the new prize.' : 'No new plays are being counted here; your count and history are kept.'} To track the current prize, use “+ Add a machine to track”.</div>` : ''}
+      ${server.liveStatus && !server.liveStatus.ok ? `<div class="live-status err">${esc(server.liveStatus.msg)}</div>` : ''}
+      ${switcher ? `<div class="prize-actions">${switcher}</div>` : ''}
+      <div class="live-line">
+        ${lastFields.currentPlayingUser ? `<div>🎮 Now playing: ${taggedPlayerHtml(lastFields.currentPlayingUser.id)}</div>` : `<div class="muted">🎮 No one playing right now</div>`}
+        ${q.length ? `<div>⏳ Queue (${q.length}): ${q.map(u => taggedPlayerHtml(u.id)).join(', ')}</div>` : ''}
+        ${server.lastAutoWin ? `<div>🏆 Last win at ${server.lastAutoWin.count} plays — ${server.lastAutoWin.player ? taggedPlayerHtml(server.lastAutoWin.player) : 'unknown player'}, ${fmtTime(server.lastAutoWin.time)}</div>` : ''}
       </div>
-      <div class="box">
-        ${lastFields.currentPlayingUser
-          ? `<div class="now-playing">${taggedPlayerHtml(lastFields.currentPlayingUser.id)}</div>`
-          : `<div class="now-playing none">No one right now</div>`}
-        <div class="cap">Now playing</div>
-      </div>
+      ${sect('openAlert', '🔔 Alert', alertState, alertBody)}
+      ${server.machineType === 'THREE_CLAW' ? sect('openPayout', '🎯 Payout', server.threeClawPayout != null ? `payout ${server.threeClawPayout}` : 'not set', payoutBody) : ''}
+      ${sect('openManage', '⚙️ Manage', 'category, link, remove', manageBody)}
+      ${sect('openHistory', '📜 Step history', `${server.historyTotal ?? history.length} plays`, historyBody)}
     </div>
-
-    ${lastFields.queuedUsers && lastFields.queuedUsers.length > 0 ? `
-    <div class="simple-readout">
-      <div class="box">
-        <div class="num">${lastFields.queuedUsers.length}</div>
-        <div class="cap">In queue — ${lastFields.queuedUsers.map(u => taggedPlayerHtml(u.id)).join(', ')}</div>
-      </div>
-    </div>` : ''}
-
-    ${server.lastAutoWin ? `
-    <div class="simple-readout">
-      <div class="box" style="background:linear-gradient(135deg, #fdeee0, #fff8ea);border-color:#f0d9a0;">
-        <div class="num">🏆 ${server.lastAutoWin.count}</div>
-        <div class="cap">Total plays at last win — ${server.lastAutoWin.player ? taggedPlayerHtml(server.lastAutoWin.player) : 'unknown player'} at ${fmtTime(server.lastAutoWin.time)}</div>
-      </div>
-    </div>` : ''}
-
-    <div class="actions">
-      <button class="ghost" data-key="${key}" data-action="notifperm">Enable browser notifications</button>
-    </div>
-
-    <details open>
-      <summary>Step history (${server.historyTotal ?? history.length})</summary>
-      <div class="history">
-        ${history.length === 0 ? (server.historyTotal > 0 ? '<div class="hist-empty">Loading history…</div>' : '<div class="hist-empty">No entries yet — plays will appear here as they happen.</div>') :
-          `<table class="step-table">
-            <thead><tr><th class="step-num">Step</th><th>Played by</th><th>Play time</th></tr></thead>
-            <tbody>
-            ${history.slice().reverse().slice(0,80).map(h => `
-              <tr class="${h.isWin ? 'win' : ''}">
-                <td class="step-num">${h.step}: ${h.isWin ? '<span class="trophy">🏆</span>' : '<span class="lose-x">✕</span>'}</td>
-                <td>${h.player ? `<span class="player-link">${taggedPlayerHtml(h.player)}</span>` : '<span style="color:var(--muted);font-style:italic;">unknown</span>'}</td>
-                <td><span class="time-link">${fmtTime(h.t)}</span></td>
-              </tr>`).join('')}
-            </tbody>
-          </table>`}
-      </div>
-    </details>
-    `}
   `;
 }
 
@@ -1311,6 +1328,128 @@ document.addEventListener('keydown', unlockAudioOnce, {once:true});
 loaded = true;
 render();
 connectRelay();
+// ---------------------------------------------------------------------------
+// Card sections remember open/closed, "collapse / expand all", drag and drop
+// ---------------------------------------------------------------------------
+const machinesRoot = document.getElementById('machines');
+
+// <details> sections inside a card (Alert, Payout, Manage, History)
+machinesRoot.addEventListener('toggle', (e) => {
+  const d = e.target;
+  if(!d || !d.matches || !d.matches('details[data-sect]')) return;
+  const prefs = getPrefs(d.dataset.key);
+  if(!!prefs[d.dataset.sect] !== d.open){ prefs[d.dataset.sect] = d.open; savePrefs(); }
+}, true);
+
+// Collapse / expand every card (sections are untouched)
+document.querySelector('.toolbar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tool]');
+  if(!b) return;
+  const collapse = b.dataset.tool === 'collapse-all';
+  new Set(serverMachines.map(x => x.machineId)).forEach(id => { getGroupPrefs(id).collapsed = collapse; });
+  saveGroupPrefs();
+  render();
+});
+
+let toastTimer = null;
+function showToast(msg, undoFn){
+  let t = document.getElementById('toast');
+  if(t) t.remove();
+  t = document.createElement('div');
+  t.id = 'toast'; t.className = 'toast';
+  const span = document.createElement('span'); span.textContent = msg; t.appendChild(span);
+  if(undoFn){
+    const b = document.createElement('button'); b.textContent = 'Undo';
+    b.onclick = () => { undoFn(); t.remove(); };
+    t.appendChild(b);
+  }
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), 7000);
+}
+
+function moveCardToCategory(card, category){
+  if(!(socket && socket.readyState === WebSocket.OPEN)){
+    showToast('Not connected to the relay — the card was not moved to another section.');
+    return;
+  }
+  const before = card.prizes.map(p => ({machineId: p.machineId, prizeId: p.prizeId, category: p.category || null}));
+  card.prizes.forEach(p => sendToRelay({type:'setCategory', data:{machineId: p.machineId, prizeId: p.prizeId, category}}));
+  showToast(`Moved to “${category}” — shared with everyone.`, () => {
+    before.forEach(b => sendToRelay({type:'setCategory', data:b}));
+  });
+}
+
+function dropCard(id, category, targetId, placeBefore){
+  const cards = buildCards();
+  const card = cards.find(c => c.machineId === id);
+  if(!card) return;
+  const catOf = {}, order = [];
+  groupMachinesByCategory(cards).forEach(g => g.machines.forEach(c => { catOf[c.machineId] = g.category; order.push(c.machineId); }));
+  const rest = order.filter(x => x !== id);
+  let idx;
+  if(targetId && rest.includes(targetId)) idx = rest.indexOf(targetId) + (placeBefore ? 0 : 1);
+  else {
+    const last = rest.slice().reverse().find(x => catOf[x] === category);
+    idx = last ? rest.indexOf(last) + 1 : rest.length;
+  }
+  rest.splice(idx, 0, id);
+  cardOrder = rest;
+  saveCardOrder();
+  if(catOf[id] !== category) moveCardToCategory(card, category);
+  render();
+}
+
+let dragId = null, dragCat = null;
+function clearDropMarks(){
+  machinesRoot.querySelectorAll('.drop-before,.drop-after,.drop-into,.dragging').forEach(el => el.classList.remove('drop-before','drop-after','drop-into','dragging'));
+}
+function endDrag(){ dragId = null; dragCat = null; clearDropMarks(); }
+function isBefore(cardEl, e){
+  const r = cardEl.getBoundingClientRect();
+  const grid = cardEl.parentElement;
+  const twoCols = grid && getComputedStyle(grid).gridTemplateColumns.split(' ').length > 1;
+  return twoCols ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2;
+}
+
+machinesRoot.addEventListener('dragstart', (e) => {
+  const h = e.target.closest && e.target.closest('.drag-handle');
+  if(!h){ return; }
+  const cardEl = h.closest('.machine[data-machine]');
+  if(!cardEl) return;
+  dragId = cardEl.dataset.machine;
+  dragCat = cardEl.closest('.cat-section')?.dataset.category || null;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragId);
+  try{ e.dataTransfer.setDragImage(cardEl, 24, 24); }catch(_){}
+  setTimeout(() => cardEl.classList.add('dragging'), 0);
+});
+machinesRoot.addEventListener('dragover', (e) => {
+  if(!dragId) return;
+  const sec = e.target.closest('.cat-section');
+  if(!sec) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  machinesRoot.querySelectorAll('.drop-before,.drop-after,.drop-into').forEach(el => el.classList.remove('drop-before','drop-after','drop-into'));
+  if(sec.dataset.category !== dragCat) sec.classList.add('drop-into');
+  const cardEl = e.target.closest('.machine[data-machine]');
+  if(cardEl && cardEl.dataset.machine !== dragId) cardEl.classList.add(isBefore(cardEl, e) ? 'drop-before' : 'drop-after');
+});
+machinesRoot.addEventListener('drop', (e) => {
+  if(!dragId) return;
+  const sec = e.target.closest('.cat-section');
+  if(!sec){ endDrag(); return; }
+  e.preventDefault();
+  const cardEl = e.target.closest('.machine[data-machine]');
+  const onOther = cardEl && cardEl.dataset.machine !== dragId;
+  const id = dragId;
+  const category = sec.dataset.category;
+  const targetId = onOther ? cardEl.dataset.machine : null;
+  const placeBefore = onOther ? isBefore(cardEl, e) : true;
+  endDrag();
+  dropCard(id, category, targetId, placeBefore);
+});
+machinesRoot.addEventListener('dragend', endDrag);
 </script>
 </body>
 </html>
