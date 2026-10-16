@@ -240,7 +240,7 @@
   .card-head-right .mini-links{width:80px;}
 
   /* ---- Armed alert: warm glow ---- */
-  .cat-section .machine.armed{box-shadow:0 0 0 2px #e8a317, 0 0 16px 3px rgba(232,163,23,.5);}
+  .cat-section .machine.armed{box-shadow:0 0 0 1px #e8a317, 0 0 7px 1px rgba(232,163,23,.45);}
 
   /* ---- Card header v3: prize row on top, links + toggle on its right ---- */
   .card-head{flex-direction:column;gap:10px;margin-bottom:8px;}
@@ -270,6 +270,36 @@
   .card-info{min-width:0;}
   .info-lines{flex-direction:column;gap:3px;}
   .card-head-main .machine-name-static{font-size:.95rem;font-weight:700;color:var(--ink);}
+
+  /* ---- Card header v5: prize row, title, then numbers | info | links ---- */
+  .card-head{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-bottom:8px;}
+  .card-row1{display:flex;align-items:center;gap:8px;}
+  .card-row1 .drag-handle{align-self:flex-start;padding:2px 0 0;}
+  .card-prizes{display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;width:auto;min-width:0;height:80px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;}
+  .card-prizes .prize-other{flex:0 0 auto;width:76px;height:76px;border-radius:10px;}
+  .card-prizes .prize-other.sel{outline:2px solid hsl(var(--h) 55% 45%);outline-offset:1px;}
+  .stale-badge{font-size:.72rem;font-weight:700;color:var(--alert);background:rgba(184,50,31,.1);border-radius:999px;padding:2px 9px;white-space:nowrap;}
+  .card-title{min-width:0;}
+  .machine:not(.expanded) .card-title .machine-name-static{height:2.6em;}
+  .card-title .machine-name-static{font-size:.95rem;font-weight:700;color:var(--ink);line-height:1.3;}
+  .card-row3{display:flex;align-items:center;gap:16px;min-height:72px;}
+  .card-row3 .stat-row{margin:0;flex:0 0 auto;}
+  .card-row3 .card-info{flex:1;min-width:0;}
+  .card-row3 .mini-links{flex-direction:row;gap:8px;width:auto;margin-left:auto;flex-shrink:0;}
+
+  /* ---- Title: one line, cut off with an ellipsis (full title on hover) ---- */
+  .machine:not(.expanded) .card-title .machine-name-static{display:block;height:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:unset;-webkit-box-orient:initial;}
+
+  /* ---- Minimised cards: even top/bottom spacing ---- */
+  .machine:not(.expanded) .card-head{margin-bottom:0;}
+  .card-grid .machine:not(.expanded){padding-bottom:14px;}
+
+  /* ---- Irrelevant prizes are greyed out ---- */
+  .cat-section .machine.alerting{border-color:var(--line);border-left-color:#9a9a9a;box-shadow:none;background:#f1f1f1;filter:grayscale(1);opacity:.72;}
+  .prize-other.stale img{filter:grayscale(1);}
+  .toolbar .tool-btn[hidden]{display:none;}
+  .tool-btn.danger{margin-right:auto;}
+  .tool-btn.danger:hover{border-color:var(--alert);color:var(--alert);}
 </style>
 </head>
 <body>
@@ -289,6 +319,7 @@
   <button class="add-machine" id="addBtn">+ Add a machine to track</button>
 
   <div class="toolbar">
+    <button class="tool-btn danger" data-tool="remove-irrelevant" hidden title="Remove every prize that is no longer on its machine (shared with everyone)">🗑 Remove irrelevant prizes</button>
     <span>All cards:</span>
     <button class="tool-btn" data-tool="collapse-all" title="Collapse all cards (sections stay as they are)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 7l5-5 5 5M3 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Collapse</button>
     <button class="tool-btn" data-tool="expand-all" title="Expand all cards (sections stay as they are)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3l5 5 5-5M3 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Expand</button>
@@ -777,8 +808,38 @@ function catHue(cat){
   return h % 360;
 }
 
+function updateToolbar(){
+  const btn = document.querySelector('[data-tool="remove-irrelevant"]');
+  if(!btn) return;
+  const n = serverMachines.filter(x => x.prizeStale).length;
+  btn.hidden = n === 0;
+  btn.textContent = `🗑 Remove irrelevant prizes (${n})`;
+}
+
+function removeIrrelevantPrizes(){
+  const stale = serverMachines.filter(x => x.prizeStale);
+  if(!stale.length){ showToast('There are no irrelevant prizes to remove.'); return; }
+  if(!(socket && socket.readyState === WebSocket.OPEN)){ showToast('Not connected to the relay — nothing was removed.'); return; }
+  const machineIds = Array.from(new Set(stale.map(x => x.machineId)));
+  if(!confirm(`Remove ${stale.length} irrelevant prize${stale.length === 1 ? '' : 's'} (${machineIds.length} machine${machineIds.length === 1 ? '' : 's'})? This is shared — they will stop counting for everyone watching this dashboard. Prizes that are still on their machine keep tracking.`)) return;
+  stale.forEach(x => {
+    sendToRelay({type:'stopTracking', data:{machineId: x.machineId, prizeId: x.prizeId}});
+    delete localPrefs[machineKey(x.machineId, x.prizeId)];
+  });
+  machineIds.forEach(id => {
+    const keep = serverMachines.filter(x => x.machineId === id && !x.prizeStale);
+    if(keep.length === 0) delete groupPrefs[id];
+    else {
+      const gp = getGroupPrefs(id);
+      if(stale.some(x => x.machineId === id && x.prizeId === gp.selectedPrizeId)) gp.selectedPrizeId = null;
+    }
+  });
+  savePrefs(); saveGroupPrefs();
+}
+
 function render(){
   updateGlobalBar();
+  updateToolbar();
   const root = document.getElementById('machines');
   root.innerHTML = '';
   if(!loaded){ root.innerHTML = '<div class="loading">Connecting to relay…</div>'; return; }
@@ -904,7 +965,7 @@ function renderTrackedCard(server, prefs, key, prizes){
     if(src.startsWith('//')) src = 'https:' + src;
     else if(src.startsWith('/')) src = 'https://tokyocatch.com' + src;
     const tip = `${prizeName(p)} — ${p.livePlays} play${p.livePlays === 1 ? '' : 's'}${p.prizeStale ? ' (no longer on this machine)' : ''}`;
-    return `<button class="prize-other${p.prizeStale ? ' stale' : ''}" data-action="select-prize" data-machine="${escapeAttr(p.machineId)}" data-prize="${escapeAttr(p.prizeId)}" title="${escapeAttr(tip)}" aria-label="${escapeAttr('Show ' + prizeName(p))}">${src ? `<img src="${escapeAttr(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" />` : ''}</button>`;
+    return `<button class="prize-other${p.prizeStale ? ' stale' : ''}${p.prizeId === server.prizeId ? ' sel' : ''}" data-action="select-prize" data-machine="${escapeAttr(p.machineId)}" data-prize="${escapeAttr(p.prizeId)}" title="${escapeAttr(tip)}" aria-label="${escapeAttr('Show ' + prizeName(p))}">${src ? `<img src="${escapeAttr(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" />` : ''}</button>`;
   };
   let thumbSrc = server.prizeImageUrl || '';
   if(thumbSrc.startsWith('//')) thumbSrc = 'https:' + thumbSrc;
@@ -953,7 +1014,7 @@ function renderTrackedCard(server, prefs, key, prizes){
 
   const stats = `
     <div class="stat-row">
-      <div class="stat heat-${heat}"><div class="stat-num">${plays}${target != null ? `<span class="stat-slash">/</span>${target}` : ''}</div><div class="stat-cap">Plays${target != null ? ' / Target' : ''}${toGo ? ' · ' + toGo : ''}</div></div>
+      <div class="stat heat-${heat}"><div class="stat-num">${plays}${target != null ? `<span class="stat-slash">/</span>${target}` : ''}</div><div class="stat-cap">Plays${target != null ? ' / ' + (hasPayout ? 'Payout' : 'Alert') : ''}${toGo ? ' · ' + toGo : ''}</div></div>
       ${prefs.alertEnabled && alertAt != null && alertAt !== target ? `<div class="stat stat-small"><div class="stat-num">${alertAt}</div><div class="stat-cap">Alert at</div></div>` : ''}
     </div>`;
   const links = server.machineId && server.prizeId ? `<div class="mini-links">
@@ -965,39 +1026,31 @@ function renderTrackedCard(server, prefs, key, prizes){
     : `<input class="machine-name" value="${esc(prefs.name || '')}" placeholder="${esc(server.prizeTitleEn || server.prizeTitleJa || 'New machine')}" data-key="${key}" data-field="name" />`;
   const othersHtml = prizes.length > 1 ? `<div class="prize-others">${prizes.filter(p => p.prizeId !== server.prizeId).map(otherPrizeThumb).join('')}</div>` : '';
   const toggleBtn = `<button class="card-toggle" data-key="${key}" data-action="toggle-collapse" title="${collapsed ? 'Expand this card' : 'Collapse this card'}" aria-label="${collapsed ? 'Expand this card' : 'Collapse this card'}">${collapsed ? ICON_DOWN : ICON_UP}</button>`;
-  const head = (info) => `
+  const staleBadge = server.prizeStale ? '<span class="stale-badge">Irrelevant prize</span>' : '';
+  const infoHtml = `<div class="machine-summary info-lines">
+        <span>Label <b>${server.prizeLabel ? esc(prettify(server.prizeLabel)) : '—'}</b></span>
+        <span>Ticket cost <b>${esc(ticketText)}</b></span>
+        <span>Gem cost <b>${esc(gemText)}</b></span>
+      </div>`;
+  const head = (afterTitle) => `
     <div class="card-head">
-      <span class="drag-handle" draggable="true" title="Drag to reorder, or drop into another section" aria-label="Drag handle">⋮⋮</span>
-      <div class="card-prizes">${thumb}${othersHtml}</div>
-      <div class="card-head-main">
-        <div class="machine-top">
-          ${nameEl}
-          ${toggleBtn}
-        </div>
+      <div class="card-row1">
+        <span class="drag-handle" draggable="true" title="Drag to reorder, or drop into another section" aria-label="Drag handle">⋮⋮</span>
+        <div class="card-prizes">${prizes.map(otherPrizeThumb).join('')}</div>
+        ${staleBadge}
+        ${toggleBtn}
+      </div>
+      <div class="card-title">${nameEl}${afterTitle || ''}</div>
+      <div class="card-row3">
         ${stats}
-        <div class="card-bottom">
-          <div class="card-info">${info}</div>
-          ${links}
-        </div>
+        <div class="card-info">${infoHtml}</div>
+        ${links}
       </div>
     </div>`;
 
-  if(collapsed){
-    return head(`<div class="machine-summary info-lines">
-          ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
-          ${server.prizeLabel ? `<span>Label <b>${esc(prettify(server.prizeLabel))}</b></span>` : ''}
-          <span>Ticket cost <b>${esc(ticketText)}</b></span>
-          <span>Gem cost <b>${esc(gemText)}</b></span>
-        </div>`);
-  }
+  if(collapsed) return head('');
 
-  const chips = [
-    `<span class="chip">Ticket <b>${esc(ticketText)}</b></span>`,
-    `<span class="chip">Gem <b>${esc(gemText)}</b></span>`,
-    server.machineType ? `<span class="chip">${esc(prettify(server.machineType))}</span>` : '',
-    server.prizeLabel ? `<span class="chip${server.prizeLabel === 'LAST_CHANCE' ? ' last-chance' : ''}">${esc(prettify(server.prizeLabel))}</span>` : '',
-    server.prizeStale ? `<span class="chip warn">Irrelevant prize</span>` : ''
-  ].join('');
+  const chips = server.machineType ? `<span class="chip">${esc(prettify(server.machineType))}</span>` : '';
   const titles = (prefs.name && server.prizeTitleEn ? `<div>${esc(server.prizeTitleEn)}</div>` : '') + (server.prizeTitleJa ? `<div>${esc(server.prizeTitleJa)}</div>` : '');
 
   const alertBody = `
@@ -1394,6 +1447,7 @@ machinesRoot.addEventListener('toggle', (e) => {
 document.querySelector('.toolbar').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tool]');
   if(!b) return;
+  if(b.dataset.tool === 'remove-irrelevant'){ removeIrrelevantPrizes(); return; }
   const collapse = b.dataset.tool === 'collapse-all';
   new Set(serverMachines.map(x => x.machineId)).forEach(id => { getGroupPrefs(id).collapsed = collapse; });
   saveGroupPrefs();
