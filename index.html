@@ -20,7 +20,7 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--paper);color:var(--ink);font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;padding:32px 16px 64px;}
-  .wrap{max-width:680px;margin:0 auto;}
+  .wrap{max-width:1100px;margin:0 auto;}
   header{margin-bottom:24px;}
   h1{font-size:2.2rem;font-weight:800;margin:0 0 4px;letter-spacing:-0.01em;}
   .sub{color:var(--muted);font-size:0.95rem;line-height:1.55;max-width:none;}
@@ -148,6 +148,39 @@
   .category-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
   .category-row label{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);white-space:nowrap;}
   .category-row input{flex:1;border:1px solid var(--line);background:white;border-radius:6px;padding:6px 9px;font-size:0.85rem;font-family:inherit;}
+
+  /* ---- Layout: two-column card grid ---- */
+  .card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+  .card-grid .machine{margin-bottom:0;padding:16px 16px 14px;}
+  .card-grid .machine.expanded{grid-column:1/-1;}
+  @media (max-width:760px){.card-grid{grid-template-columns:1fr;}}
+
+  /* ---- Smaller titles, smaller thumbnails ---- */
+  .machine-name-static{font-size:.85rem;font-weight:600;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;}
+  .machine-name{font-size:1rem;}
+  .card-head{gap:12px;margin-bottom:8px;}
+  .card-head-side{width:80px;}
+  .prize-thumb{width:70px;height:70px;}
+  .mini-links button{padding:4px 6px;font-size:.74rem;}
+  .prize-other{width:46px;height:46px;}
+
+  /* ---- Big PLAYS / TARGET numbers, coloured by how close to target ---- */
+  .stat-row{display:flex;gap:22px;align-items:flex-end;margin:4px 0 8px;flex-wrap:wrap;}
+  .stat-slash{color:var(--muted);font-weight:500;margin:0 3px;}
+  .stat-num{font-size:2.8rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink);}
+  .stat-cap{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px;}
+  .stat.stat-small .stat-num{font-size:1.25rem;font-weight:700;color:var(--muted);}
+  .stat.heat-1 .stat-num, .simple-readout .box .num.heat-1{color:#b7791f;}
+  .stat.heat-2 .stat-num, .simple-readout .box .num.heat-2{color:#d9531e;}
+  .stat.heat-3 .stat-num, .simple-readout .box .num.heat-3{color:#c0261b;}
+  .stat.heat-3 .stat-cap{color:#c0261b;font-weight:700;}
+
+  /* ---- Each category gets its own colour (hue set per section by script) ---- */
+  .cat-section{--h:30;}
+  .cat-section .machine{background:hsl(var(--h) 65% 96%);border-color:hsl(var(--h) 40% 80%);border-left:6px solid hsl(var(--h) 55% 50%);}
+  .cat-section .machine.alerting{border-color:var(--alert);border-left-color:var(--alert);}
+  .cat-section .category-header h2{display:flex;align-items:center;gap:8px;color:hsl(var(--h) 55% 28%);}
+  .cat-section .category-header h2::before{content:"";width:14px;height:14px;border-radius:50%;background:hsl(var(--h) 55% 50%);}
 </style>
 </head>
 <body>
@@ -627,6 +660,12 @@ function openPopup(url){
 
 const HEX24 = /^[0-9a-f]{24}$/i;
 
+function catHue(cat){
+  let h = 7;
+  for(const ch of String(cat)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+
 function render(){
   updateGlobalBar();
   const root = document.getElementById('machines');
@@ -650,6 +689,8 @@ function render(){
 
   groupMachinesByCategory(buildCards()).forEach(({category, machines}) => {
     const section = document.createElement('div');
+    section.className = 'cat-section';
+    section.style.setProperty('--h', catHue(category));
     section.innerHTML = renderCategorySection(category, machines);
     root.appendChild(section);
   });
@@ -683,12 +724,15 @@ function renderCategorySection(category, machines){
       <button class="icon-btn" data-action="toggle-category" data-category="${escCat}">Collapse ▲</button>
     </div>
   `;
+  html += '<div class="card-grid">';
   machines.forEach(card => {
     const server = card.selected;
     const key = machineKey(server.machineId, server.prizeId);
     const prefs = getPrefs(key);
-    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
+    const isCollapsed = getGroupPrefs(server.machineId).collapsed;
+    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}${isCollapsed ? '' : ' expanded'}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
   });
+  html += '</div>';
   return html;
 }
 
@@ -755,6 +799,20 @@ function renderTrackedCard(server, prefs, key, prizes){
   // MACHINE_INIT for this prize arrives (shown as a dash).
   const autoAt = prefs.alertAuto ? autoAlertTarget(server) : null;   // non-null = following the payout
   const alertAt = alertTarget(prefs, server);
+  // How close the play count is to the target: 0 normal, 1 within 3 plays of the
+  // alert target, 2 at/over the alert target, 3 at/over the payout (or the target
+  // itself when the machine has no payout number).
+  const plays = Number(server.livePlays) || 0;
+  const hasPayout = server.machineType === 'THREE_CLAW' && server.threeClawPayout != null && Number.isFinite(Number(server.threeClawPayout));
+  const dueAt = hasPayout ? Number(server.threeClawPayout) : alertAt;
+  // Target = the payout when the machine has one, otherwise the alert number.
+  const target = dueAt;
+  let heat = 0;
+  if(target != null){
+    const left = target - plays;
+    heat = left <= 0 ? 3 : left <= 3 ? 2 : left <= 6 ? 1 : 0;
+  }
+  const toGo = target != null ? (plays >= target ? 'reached' : `${target - plays} to go`) : '';
   const ticketText = server.isDisabledPlayByTicket ? 'N/A' : (server.ticketCost != null ? server.ticketCost : '—');
   const gemText = server.gemCost != null ? server.gemCost : '—';
   const metaParts = [];
@@ -788,10 +846,11 @@ function renderTrackedCard(server, prefs, key, prizes){
     ${collapsed ? '' : '</div></div>'}
 
     ${collapsed ? `
+    <div class="stat-row">
+      <div class="stat heat-${heat}"><div class="stat-num">${plays}${target != null ? `<span class="stat-slash">/</span>${target}` : ''}</div><div class="stat-cap">Plays${target != null ? ' / Target' : ''}${toGo ? ' · ' + toGo : ''}</div></div>
+      ${prefs.alertEnabled && alertAt != null && alertAt !== target ? `<div class="stat stat-small"><div class="stat-num">${alertAt}</div><div class="stat-cap">Alert at</div></div>` : ''}
+    </div>
     <div class="machine-summary">
-      <span>Plays <b>${server.livePlays}</b></span>
-      <span>Alert at <b>${prefs.alertEnabled && alertAt ? alertAt : '—'}</b></span>
-      ${server.machineType === 'THREE_CLAW' && server.threeClawPayout != null ? `<span>Payout at <b>${server.threeClawPayout}</b></span>` : ''}
       ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
       ${server.prizeLabel ? `<span>Label <b>${escapeAttr(String(server.prizeLabel).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))}</b></span>` : ''}
     </div>
@@ -909,7 +968,7 @@ function renderTrackedCard(server, prefs, key, prizes){
 
     <div class="simple-readout">
       <div class="box">
-        <div class="num">${server.livePlays}</div>
+        <div class="num heat-${heat}">${server.livePlays}</div>
         <div class="cap">Plays counted since last win</div>
       </div>
       <div class="box">
