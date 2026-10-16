@@ -195,8 +195,8 @@
   .drag-handle{cursor:grab;color:var(--muted);user-select:none;font-size:1rem;line-height:1;letter-spacing:-3px;padding:4px 6px 4px 0;flex-shrink:0;}
   .drag-handle:active{cursor:grabbing;}
   .machine.dragging{opacity:.4;}
-  .machine.drop-before{box-shadow:-6px 0 0 0 var(--claw);}
-  .machine.drop-after{box-shadow:6px 0 0 0 var(--claw);}
+  .cat-section .machine.drop-before{box-shadow:-6px 0 0 0 var(--claw) !important;}
+  .cat-section .machine.drop-after{box-shadow:6px 0 0 0 var(--claw) !important;}
   .cat-section.drop-into{outline:2px dashed hsl(var(--h) 55% 50%);outline-offset:6px;border-radius:14px;}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:.85rem;display:flex;gap:14px;align-items:center;z-index:50;box-shadow:0 6px 24px rgba(0,0,0,.25);}
   .toast button{background:none;border:none;color:#ffd9a0;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;}
@@ -230,6 +230,46 @@
   .mini-field{display:flex;flex-direction:column;gap:3px;font-size:.74rem;color:var(--muted);}
   .mini-field input{width:90px !important;}
   .payout-val{font-weight:800;font-size:1.1rem;padding:5px 0;color:var(--ink);}
+
+  /* ---- Card header: prizes on the left, links + toggle on the right ---- */
+  .card-head-side{width:100px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
+  .prize-thumb{width:100px;height:100px;}
+  .prize-others{display:flex;gap:5px;flex-wrap:wrap;margin-top:0;}
+  .prize-other{width:30px;height:30px;border-radius:6px;}
+  .card-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0;}
+  .card-head-right .mini-links{width:80px;}
+
+  /* ---- Armed alert: warm glow ---- */
+  .cat-section .machine.armed{box-shadow:0 0 0 2px #e8a317, 0 0 16px 3px rgba(232,163,23,.5);}
+
+  /* ---- Card header v3: prize row on top, links + toggle on its right ---- */
+  .card-head{flex-direction:column;gap:10px;margin-bottom:8px;}
+  .card-top{display:flex;align-items:flex-start;gap:12px;}
+  .card-prizes{display:flex;align-items:flex-end;gap:10px;flex:1;min-width:0;flex-wrap:wrap;}
+  .card-prizes .prize-thumb{width:84px;height:84px;}
+  .card-prizes .prize-others{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin:0;}
+  .card-prizes .prize-other{width:42px;height:42px;}
+  .card-head-right{flex-direction:row;align-items:flex-start;gap:8px;}
+  .card-head-right .mini-links{flex-direction:row;width:auto;gap:8px;}
+  .mini-links button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:62px;height:56px;padding:6px 4px;border-radius:10px;font-size:.74rem;line-height:1;}
+  .mini-links button::before{content:attr(data-icon);font-size:1.15rem;line-height:1;}
+  .card-head-main .machine-top{margin-bottom:8px;}
+
+  /* ---- Card header v4: handle | prize column | (title+toggle, numbers, info + links) ---- */
+  .card-head{flex-direction:row;align-items:flex-start;gap:10px;margin-bottom:8px;}
+  .card-head > .drag-handle{padding:2px 0 0;}
+  .card-prizes{flex-direction:column;align-items:flex-end;flex:none;width:84px;gap:8px;flex-wrap:nowrap;}
+  .card-prizes .prize-others{flex-direction:column;align-items:flex-end;gap:6px;}
+  .card-head-main{display:flex;flex-direction:column;}
+  .card-head-main .machine-top{margin-bottom:4px;align-items:flex-start;}
+  .stat-row{align-items:flex-start;gap:14px;margin:0 0 4px;}
+  .stat.stat-small{display:flex;flex-direction:column-reverse;margin-top:4px;}
+  .stat.stat-small .stat-num{font-size:1.6rem;}
+  .card-bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:6px;}
+  .card-bottom .mini-links{flex-direction:row;gap:8px;width:auto;flex-shrink:0;}
+  .card-info{min-width:0;}
+  .info-lines{flex-direction:column;gap:3px;}
+  .card-head-main .machine-name-static{font-size:.95rem;font-weight:700;color:var(--ink);}
 </style>
 </head>
 <body>
@@ -438,10 +478,18 @@ try{ cardOrder = JSON.parse(localStorage.getItem(CARD_ORDER_KEY) || '[]') || [];
 function saveCardOrder(){
   try{ localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(cardOrder)); }catch(e){ console.error('Storage error', e); }
 }
+// One category per card, no matter which prize is currently selected: the first
+// explicit category set on any of the machine's prizes, otherwise the one
+// derived from the machine's first prize title.
+function cardCategory(card){
+  const explicit = card.prizes.find(p => p.category);
+  if(explicit) return explicit.category;
+  return deriveCategory(card.prizes[0].prizeTitleEn) || 'Others';
+}
 function groupMachinesByCategory(list){
   const groups = new Map();
   list.forEach(card => {
-    const cat = categoryFor(card.selected);   // a card sits under its selected prize's category
+    const cat = cardCategory(card);   // one category per card, whichever prize is selected
     if(!groups.has(cat)) groups.set(cat, []);
     groups.get(cat).push(card);
   });
@@ -794,7 +842,8 @@ function renderCategorySection(category, machines){
     const key = machineKey(server.machineId, server.prizeId);
     const prefs = getPrefs(key);
     const isCollapsed = getGroupPrefs(server.machineId).collapsed;
-    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}${isCollapsed ? '' : ' expanded'}" data-machine="${escapeAttr(server.machineId)}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
+    const armed = !!prefs.alertEnabled && alertTarget(prefs, server) != null && !prefs.alertPlayFired;
+    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}${armed ? ' armed' : ''}${isCollapsed ? '' : ' expanded'}"${armed ? ' title="Alert armed"' : ''} data-machine="${escapeAttr(server.machineId)}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
   });
   html += '</div>';
   return html;
@@ -805,7 +854,7 @@ function renderDraftCard(d){
   const sameMachine = idsValid && serverMachines.some(s => s.machineId === d.machineId);
   const sibling = sameMachine ? buildCards().find(c => c.machineId === d.machineId) : null;
   const catPlaceholder = sibling
-    ? `${categoryFor(sibling.selected)} (same as this machine's existing card)`
+    ? `${cardCategory(sibling)} (same as this machine's existing card)`
     : 'Auto-detected from the prize title';
   return `
     <div class="machine-top">
@@ -908,38 +957,38 @@ function renderTrackedCard(server, prefs, key, prizes){
       ${prefs.alertEnabled && alertAt != null && alertAt !== target ? `<div class="stat stat-small"><div class="stat-num">${alertAt}</div><div class="stat-cap">Alert at</div></div>` : ''}
     </div>`;
   const links = server.machineId && server.prizeId ? `<div class="mini-links">
-      <button data-key="${key}" data-action="open-tokyocatch" title="Open this prize on TokyoCatch (new tab)">🐙 TCatch</button>
-      <button data-key="${key}" data-action="open-toreba" title="Open the Toreba.Plus Annex history (new tab)">📊 Annex</button>
+      <button data-key="${key}" data-action="open-tokyocatch" data-icon="🐙" title="Open this prize on TokyoCatch (new tab)">TCatch</button>
+      <button data-key="${key}" data-action="open-toreba" data-icon="📊" title="Open the Toreba.Plus Annex history (new tab)">Annex</button>
     </div>` : '';
   const nameEl = collapsed
     ? `<div class="machine-name-static" title="${esc(displayName)}">${esc(displayName)}</div>`
     : `<input class="machine-name" value="${esc(prefs.name || '')}" placeholder="${esc(server.prizeTitleEn || server.prizeTitleJa || 'New machine')}" data-key="${key}" data-field="name" />`;
-  const head = `
+  const othersHtml = prizes.length > 1 ? `<div class="prize-others">${prizes.filter(p => p.prizeId !== server.prizeId).map(otherPrizeThumb).join('')}</div>` : '';
+  const toggleBtn = `<button class="card-toggle" data-key="${key}" data-action="toggle-collapse" title="${collapsed ? 'Expand this card' : 'Collapse this card'}" aria-label="${collapsed ? 'Expand this card' : 'Collapse this card'}">${collapsed ? ICON_DOWN : ICON_UP}</button>`;
+  const head = (info) => `
     <div class="card-head">
-      <div class="card-head-side">${thumb}${links}</div>
+      <span class="drag-handle" draggable="true" title="Drag to reorder, or drop into another section" aria-label="Drag handle">⋮⋮</span>
+      <div class="card-prizes">${thumb}${othersHtml}</div>
       <div class="card-head-main">
         <div class="machine-top">
-          <span class="drag-handle" draggable="true" title="Drag to reorder, or drop into another section" aria-label="Drag handle">⋮⋮</span>
           ${nameEl}
-          <div class="top-actions">
-            <button class="card-toggle" data-key="${key}" data-action="toggle-collapse" title="${collapsed ? 'Expand this card' : 'Collapse this card'}" aria-label="${collapsed ? 'Expand this card' : 'Collapse this card'}">${collapsed ? ICON_DOWN : ICON_UP}</button>
-          </div>
+          ${toggleBtn}
         </div>
-        ${stats}`;
-
-  if(collapsed){
-    return head + `
-        <div class="machine-summary">
-          ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
-          ${server.prizeLabel ? `<span>Label <b>${esc(prettify(server.prizeLabel))}</b></span>` : ''}
+        ${stats}
+        <div class="card-bottom">
+          <div class="card-info">${info}</div>
+          ${links}
         </div>
-        <div class="machine-summary machine-cost">
-          <span>Ticket cost <b>${esc(ticketText)}</b></span>
-          <span>Gem cost <b>${esc(gemText)}</b></span>
-        </div>
-        ${prizes.length > 1 ? `<div class="prize-others">${prizes.filter(p => p.prizeId !== server.prizeId).map(otherPrizeThumb).join('')}</div>` : ''}
       </div>
     </div>`;
+
+  if(collapsed){
+    return head(`<div class="machine-summary info-lines">
+          ${server.prizeStale ? `<span class="summary-tag stale">Irrelevant Prize</span>` : ''}
+          ${server.prizeLabel ? `<span>Label <b>${esc(prettify(server.prizeLabel))}</b></span>` : ''}
+          <span>Ticket cost <b>${esc(ticketText)}</b></span>
+          <span>Gem cost <b>${esc(gemText)}</b></span>
+        </div>`);
   }
 
   const chips = [
@@ -1015,10 +1064,7 @@ function renderTrackedCard(server, prefs, key, prizes){
         </tbody>
       </table></div>`;
 
-  return head + `
-        ${titles ? `<div class="x-titles">${titles}</div>` : ''}
-      </div>
-    </div>
+  return head(titles ? `<div class="x-titles">${titles}</div>` : '') + `
     <div class="x-body">
       <div class="chips">${chips}</div>
       ${server.prizeStale ? `<div class="warn-box"><b>⚠️ Prize no longer on this machine.</b> ${prizes.length > 1 ? 'Counting carries on via this machine’s other prize(s).' : server.dataSinceStale ? 'Plays are still counted but may belong to the new prize.' : 'No new plays are being counted here; your count and history are kept.'} To track the current prize, use “+ Add a machine to track”.</div>` : ''}
@@ -1156,7 +1202,10 @@ document.getElementById('machines').addEventListener('change', (e) => {
 
   if(field === 'category'){
     const val = e.target.value.trim();
-    sendToRelay({type:'setCategory', data:{machineId: server.machineId, prizeId: server.prizeId, category: val || null}});
+    // a card has one category: apply it to every prize on this machine
+    serverMachines.filter(x => x.machineId === server.machineId).forEach(x => {
+      sendToRelay({type:'setCategory', data:{machineId: x.machineId, prizeId: x.prizeId, category: val || null}});
+    });
     return;
   }
   if(field === 'threeClawUsualRate'){
