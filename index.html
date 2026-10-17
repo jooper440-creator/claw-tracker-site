@@ -391,7 +391,7 @@
     <span><span class="lose-x">✕</span> no win</span>
     <span><span class="player-tag-friend">friend</span></span>
     <span><span class="player-tag-farmer">farmer</span></span>
-    <span><span class="player-unlisted">[unlisted player]</span> not in the player list</span>
+    <span><span class="player-unlisted">123456789</span> player ID shown = not in the player list</span>
     <span>Glowing outline = alert armed</span>
     <span>Grey card = irrelevant prize (no longer on its machine)</span>
     <span>Numbers turn amber, orange, then red as plays near the payout</span>
@@ -415,7 +415,7 @@ function playerNameFor(id){
   const key=String(id || '').trim();
   if(!key) return '';
   if(playerList[key]) return playerList[key];
-  return playersLoaded ? '[unlisted player]' : '…';   // never show the raw player id
+  return key;   // not in the list: show the raw player id
 }
 function playerTagFor(id){
   return playerTags[String(id || '').trim()] || null;
@@ -1358,7 +1358,7 @@ function renderTrackedCard(server, prefs, key, prizes){
           <tr class="${h.isWin ? 'win' : ''}">
             <td class="step-num">${escapeAttr(h.step)}: ${h.isWin ? '<span class="trophy">🏆</span>' : '<span class="lose-x">✕</span>'}</td>
             <td>${h.player ? `<span class="player-link">${taggedPlayerHtml(h.player)}</span>` : '<span style="color:var(--muted);font-style:italic;">unknown</span>'}</td>
-            <td><span class="time-link">${timeHtml(h.t)}</span></td>
+            <td><span class="time-link">${h.t ? escapeAttr(fmtTime(h.t)) : ''}</span></td>
           </tr>`).join('')}
         </tbody>
       </table></div>`;
