@@ -312,7 +312,7 @@
   .prize-other.pdrop-after{box-shadow:5px 0 0 0 var(--claw);}
   .player-unlisted{color:var(--muted);font-style:italic;}
   /* glow: the complementary colour of the section's colour */
-  .cat-section .machine.armed{box-shadow:0 0 0 1px hsl(calc(var(--h) + 180) 70% 42%), 0 0 7px 1px hsl(calc(var(--h) + 180) 80% 50% / .5);}
+  .cat-section .machine.armed{box-shadow:0 0 0 2px hsl(calc(var(--h) + 180) 70% 42%);}
   /* hot now */
   .hot-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 12px;}
   .hot-strip[hidden]{display:none;}
@@ -339,6 +339,29 @@
   /* legend */
   .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:28px;padding-top:12px;border-top:1px solid var(--line);font-size:.74rem;color:var(--muted);}
   .legend b{color:var(--ink);}
+
+  /* ---- v7: top-right cluster lines up with the top edge of the prizes ---- */
+  .card-row1{align-items:flex-start;}
+  .card-row1 .drag-handle{margin-top:4px;}
+  .row1-right{display:flex;align-items:center;gap:6px;margin-top:4px;flex-shrink:0;}
+  .arm-toggle{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:.95rem;line-height:1;cursor:pointer;flex-shrink:0;filter:grayscale(1);opacity:.7;}
+  .arm-toggle:hover{opacity:1;border-color:var(--claw);}
+  .arm-toggle.on{filter:none;opacity:1;background:hsl(calc(var(--h) + 180) 70% 94%);border-color:hsl(calc(var(--h) + 180) 70% 42%);}
+  /* sections: handle + up/down buttons */
+  .cat-title{display:flex;align-items:center;gap:8px;min-width:0;}
+  .cat-handle{cursor:grab;color:var(--muted);user-select:none;letter-spacing:-3px;font-size:1.1rem;line-height:1;padding:2px 4px 2px 0;}
+  .cat-handle:active{cursor:grabbing;}
+  .cat-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .cat-move{width:26px;height:26px;padding:0;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);font-size:.7rem;cursor:pointer;}
+  .cat-move:hover{color:var(--ink);border-color:var(--muted);}
+  .cat-section.sdragging{opacity:.45;}
+  .cat-section.sdrop-before{box-shadow:0 -6px 0 0 hsl(var(--h) 55% 50%);}
+  .cat-section.sdrop-after{box-shadow:0 6px 0 0 hsl(var(--h) 55% 50%);}
+
+  /* TCatch / Annex are real links, styled like the buttons they replaced */
+  .mini-links a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:62px;height:56px;padding:6px 4px;box-sizing:border-box;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:.74rem;line-height:1;font-weight:600;color:var(--claw-dark);text-decoration:none;white-space:nowrap;cursor:pointer;}
+  .mini-links a:hover{border-color:var(--claw);background:#fdf6ec;}
+  .mini-links a::before{content:attr(data-icon);font-size:1.15rem;line-height:1;}
 </style>
 </head>
 <body>
@@ -481,11 +504,11 @@ try{ localPrefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') || {}; }ca
 // storage key, and each prize's prefs object reads/writes them through
 // accessors (see bindAlertFields) so the rest of the code is unchanged.
 const ALERTS_KEY = 'tc_machine_alerts_v1';
-const ALERT_FIELDS = ['alertEnabled', 'alertAuto', 'alertPlayTarget', 'alertPlayFired'];
+const ALERT_FIELDS = ['alertEnabled', 'alertAuto', 'alertPlayTarget', 'alertPlayFired', 'alertLastPlays'];
 let machineAlerts = {};    // machineId -> {alertEnabled, alertAuto, alertPlayTarget, alertPlayFired}
 try{ machineAlerts = JSON.parse(localStorage.getItem(ALERTS_KEY) || '{}') || {}; }catch(e){ machineAlerts = {}; }
 function machineAlert(machineId){
-  if(!machineAlerts[machineId]) machineAlerts[machineId] = {alertEnabled: false, alertAuto: true, alertPlayTarget: null, alertPlayFired: false};
+  if(!machineAlerts[machineId]) machineAlerts[machineId] = {alertEnabled: false, alertAuto: true, alertPlayTarget: null, alertPlayFired: false, alertLastPlays: null};
   return machineAlerts[machineId];
 }
 function bindAlertFields(prefs, machineId){
@@ -549,9 +572,10 @@ function categoryFor(server){
 // The order of the cards and of the prizes inside each card is shared (the relay
 // keeps it and sends it to everyone). We apply a change here straight away so it
 // feels instant; the relay's `layout` message then confirms it for everyone.
-let serverLayout = {cardOrder: [], prizeOrder: {}};
+let serverLayout = {cardOrder: [], prizeOrder: {}, categoryOrder: []};
 function sendLayout(patch){
   if(patch.cardOrder) serverLayout.cardOrder = patch.cardOrder.slice();
+  if(patch.categoryOrder) serverLayout.categoryOrder = patch.categoryOrder.slice();
   if(patch.prizeOrder) Object.keys(patch.prizeOrder).forEach(m => { serverLayout.prizeOrder[m] = patch.prizeOrder[m].slice(); });
   sendToRelay({type:'setLayout', data: patch});
 }
@@ -575,10 +599,13 @@ function groupMachinesByCategory(list){
   const order = serverLayout.cardOrder;
   const rank = id => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
   groups.forEach(arr => arr.sort((a, b) => rank(a.machineId) - rank(b.machineId)));
-  // Stable order (first-seen), but "Others" always sorts last.
+  // Sections follow the shared section order; sections not in it yet keep their
+  // first-seen order, with "Others" last.
+  const corder = serverLayout.categoryOrder || [];
+  const crank = c => { const i = corder.indexOf(c); return i < 0 ? corder.length : i; };
   return Array.from(groups.entries())
     .map(([category, machines]) => ({category, machines}))
-    .sort((a, b) => (a.category === 'Others') - (b.category === 'Others'));
+    .sort((a, b) => (crank(a.category) - crank(b.category)) || ((a.category === 'Others') - (b.category === 'Others')));
 }
 
 function machineKey(machineId, prizeId){ return `${machineId}:${prizeId}`; }
@@ -713,24 +740,65 @@ function beep(){
     o.start(); o.stop(ctx.currentTime + 0.5);
   }catch(e){}
 }
-function notify(title, body){
+function notify(title, body, tag){
   if(window.Notification && Notification.permission === 'granted'){
-    try{ new Notification(title, {body}); }catch(e){}
+    // with a tag, each new notification replaces the last one but still alerts
+    try{ new Notification(title, tag ? {body, tag, renotify: true} : {body}); }catch(e){}
   }
 }
-function playCountAlert(name, livePlays){
+// One ping per play, counting down to the payout.
+// The prizes on a card that are still on their machine (all of them if none are),
+// in the shared prize order — used so a notification names every prize once.
+function machinePrizeNames(machineId){
+  const card = buildCards().find(c => c.machineId === machineId);
+  if(!card) return [];
+  let list = card.prizes.filter(p => !p.prizeStale);
+  if(!list.length) list = card.prizes;
+  return list.map(p => getPrefs(machineKey(p.machineId, p.prizeId)).name || p.prizeTitleEn || p.prizeTitleJa || 'Prize');
+}
+function prizeListLabel(names){
+  return names.length > 1 ? `${names[0]} (+${names.length - 1} more)` : (names[0] || 'Machine');
+}
+function playCountAlert(name, livePlays, server){
+  const names = server ? machinePrizeNames(server.machineId) : [];
+  const label = prizeListLabel(names.length ? names : [name]);
+  const prizeLine = names.length > 1 ? '\nPrizes: ' + names.join(' · ') : '';
+  const payout = Number(server && server.threeClawPayout);
+  const hasPayout = !!server && server.machineType === 'THREE_CLAW' && server.threeClawPayout != null && Number.isFinite(payout);
+  let body, urgent = false;
+  if(hasPayout){
+    const left = payout - livePlays;
+    if(left > 1) body = `${left} plays to payout (play ${livePlays}/${payout})`;
+    else if(left === 1){ body = `1 play to payout! (${livePlays}/${payout})`; urgent = true; }
+    else if(left === 0){ body = `Payout due now (${livePlays}/${payout})`; urgent = true; }
+    else { body = `${-left} play${left === -1 ? '' : 's'} past payout (${livePlays}/${payout})`; urgent = true; }
+  } else {
+    body = `${label} reached play ${livePlays}.`;
+  }
   beep();
-  notify('Play-count alert', `${name} reached play ${livePlays}.`);
+  if(urgent) setTimeout(beep, 350);   // a double beep for the last play and beyond
+  notify(`Play alert: ${label}`, body + prizeLine, 'alert-' + (server ? server.machineId : name));
 }
 // Personal alert threshold — checked locally against whatever livePlays the
 // relay just broadcast. alertPlayFired lives in localPrefs so it doesn't
 // re-fire every time this machine's update arrives.
 function checkPlayCountAlert(prefs, livePlays, name, server){
   const target = alertTarget(prefs, server);
-  if(prefs.alertEnabled && target != null &&
-     !prefs.alertPlayFired && livePlays >= target){
+  if(!prefs.alertEnabled || target == null) return;
+  if(livePlays < target){
+    // not in the alert range yet, or a win just reset the count: start over
+    if(prefs.alertPlayFired || prefs.alertLastPlays != null){
+      prefs.alertPlayFired = false; prefs.alertLastPlays = null;
+      savePrefs();
+    }
+    return;
+  }
+  // In the alert range: ping on every new play until the machine pays out
+  // (a win sets the count back to 0, which lands in the branch above).
+  if(prefs.alertLastPlays == null || livePlays > prefs.alertLastPlays){
     prefs.alertPlayFired = true;
-    playCountAlert(name, livePlays);
+    prefs.alertLastPlays = livePlays;
+    playCountAlert(name, livePlays, server);
     savePrefs();
   }
 }
@@ -772,7 +840,8 @@ function connectRelay(){
       const l = msg.data || {};
       serverLayout = {
         cardOrder: Array.isArray(l.cardOrder) ? l.cardOrder.filter(x => typeof x === 'string') : [],
-        prizeOrder: (l.prizeOrder && typeof l.prizeOrder === 'object') ? l.prizeOrder : {}
+        prizeOrder: (l.prizeOrder && typeof l.prizeOrder === 'object') ? l.prizeOrder : {},
+        categoryOrder: Array.isArray(l.categoryOrder) ? l.categoryOrder.filter(x => typeof x === 'string') : []
       };
       render();
     } else if(msg.type === 'machineUpdate'){
@@ -851,11 +920,15 @@ function handleIncomingMachineUpdate(prev, next, key){
     winNotified[next.machineId] = nextWinTime;   // a machine's prizes all report the same win; tell the person once
     if(prev) flashWin[next.machineId] = {shown: false};
     beep();
-    notify(`${name}: win detected!`, `Won after ${next.lastAutoWin.count} play${next.lastAutoWin.count === 1 ? '' : 's'} — ${playerNameFor(next.lastAutoWin.player) || 'unknown player'}.`);
+    // one notification for the whole card, naming every prize on it
+    const names = machinePrizeNames(next.machineId);
+    notify(`Win detected: ${prizeListLabel(names.length ? names : [name])}`,
+           `Won after ${next.lastAutoWin.count} play${next.lastAutoWin.count === 1 ? '' : 's'} — ${playerNameFor(next.lastAutoWin.player) || 'unknown player'}.` + (names.length > 1 ? '\nPrizes: ' + names.join(' · ') : ''),
+           'win-' + next.machineId);
     // THREE_CLAW payout math is computed by the relay now (shared —
     // next.threeClawPayout/threeClawLastPayoutOwed arrive already updated
     // in this same broadcast), not here.
-    prefs.alertPlayFired = false; // a new session is starting — re-arm the play-count alert for it
+    prefs.alertPlayFired = false; prefs.alertLastPlays = null; // a new session is starting — re-arm the play-count alert for it
     savePrefs();
   }
 
@@ -1016,6 +1089,21 @@ function render(){
   });
 }
 
+function sectionHeader(escCat, isCollapsed){
+  return `
+    <div class="category-header">
+      <div class="cat-title">
+        <span class="cat-handle" draggable="true" title="Drag to move this section" aria-label="Drag to move this section">⋮⋮</span>
+        <h2>${escCat}</h2>
+      </div>
+      <div class="cat-actions">
+        <button class="cat-move" data-action="section-up" data-category="${escCat}" title="Move this section up" aria-label="Move this section up">▲</button>
+        <button class="cat-move" data-action="section-down" data-category="${escCat}" title="Move this section down" aria-label="Move this section down">▼</button>
+        <button class="cat-toggle" data-action="toggle-category" data-category="${escCat}" title="${isCollapsed ? "Show this section's cards" : 'Hide this whole section'}">${isCollapsed ? '▾ Show section' : '▴ Hide section'}</button>
+      </div>
+    </div>`;
+}
+
 function renderCategorySection(category, machines){
   const catPrefs = getCategoryPrefs(category);
   const escCat = escapeAttr(category);
@@ -1030,27 +1118,19 @@ function renderCategorySection(category, machines){
 
   if(catPrefs.collapsed){
     return `
-      <div class="category-header">
-        <h2>${escCat}</h2>
-        <button class="cat-toggle" data-action="toggle-category" data-category="${escCat}" title="Show this section's cards">▾ Show section</button>
-      </div>
+      ${sectionHeader(escCat, true)}
       <div class="category-summary"><span>currently tracking ${count} item${count === 1 ? '' : 's'}</span>${extraHtml}</div>
     `;
   }
 
-  let html = `
-    <div class="category-header">
-      <h2>${escCat}</h2>
-      <button class="cat-toggle" data-action="toggle-category" data-category="${escCat}" title="Hide this whole section">▴ Hide section</button>
-    </div>
-  `;
+  let html = sectionHeader(escCat, false);
   html += '<div class="card-grid">';
   machines.forEach(card => {
     const server = card.selected;
     const key = machineKey(server.machineId, server.prizeId);
     const prefs = getPrefs(key);
     const isCollapsed = getGroupPrefs(server.machineId).collapsed;
-    const armed = !!prefs.alertEnabled && alertTarget(prefs, server) != null && !prefs.alertPlayFired;
+    const armed = !!prefs.alertEnabled && alertTarget(prefs, server) != null;
     const fw = flashWin[server.machineId];
     let flash = '';
     if(fw && !fw.shown){ fw.shown = true; flash = ' won-flash'; }
@@ -1141,7 +1221,7 @@ function renderTrackedCard(server, prefs, key, prizes){
   const esc = escapeAttr;
   const prettify = v => String(v).toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   const q = lastFields.queuedUsers || [];
-  const alertState = !prefs.alertEnabled ? 'off' : (!alertAt ? 'on, no target' : (prefs.alertPlayFired ? `fired at ${alertAt}` : `armed at ${alertAt}`));
+  const alertState = !prefs.alertEnabled ? 'off' : (!alertAt ? 'on, no target' : (prefs.alertPlayFired ? 'counting down' : `armed at ${alertAt}`));
   const sect = (flag, title, status, body) => `
     <details class="sect" data-sect="${flag}" data-key="${key}" ${prefs[flag] ? 'open' : ''}>
       <summary><span>${title}</span><span class="sect-status">${status}</span></summary>
@@ -1154,14 +1234,19 @@ function renderTrackedCard(server, prefs, key, prizes){
       ${prefs.alertEnabled && alertAt != null && alertAt !== target ? `<div class="stat stat-small"><div class="stat-num">${alertAt}</div><div class="stat-cap">Alert at</div></div>` : ''}
     </div>`;
   const links = server.machineId && server.prizeId ? `<div class="mini-links">
-      <button data-key="${key}" data-action="open-tokyocatch" data-icon="🐙" title="Open this prize on TokyoCatch (new tab)">TCatch</button>
-      <button data-key="${key}" data-action="open-toreba" data-icon="📊" title="Open the Toreba.Plus Annex history (new tab)">Annex</button>
+      <a href="${esc(tokyoCatchUrl(server))}" target="_blank" rel="noopener noreferrer" data-icon="🐙" title="Open this prize on TokyoCatch (long-press on a phone for “Open in new tab”)">TCatch</a>
+      <a href="${esc(torebaPlusUrl(server))}" target="_blank" rel="noopener noreferrer" data-icon="📊" title="Open the Toreba.Plus Annex history (long-press on a phone for “Open in new tab”)">Annex</a>
     </div>` : '';
   const nameEl = collapsed
     ? `<div class="machine-name-static" title="${esc(displayName)}">${esc(displayName)}</div>`
     : `<input class="machine-name" value="${esc(prefs.name || '')}" placeholder="${esc(server.prizeTitleEn || server.prizeTitleJa || 'New machine')}" data-key="${key}" data-field="name" />`;
   const othersHtml = prizes.length > 1 ? `<div class="prize-others">${prizes.filter(p => p.prizeId !== server.prizeId).map(otherPrizeThumb).join('')}</div>` : '';
   const toggleBtn = `<button class="card-toggle" data-key="${key}" data-action="toggle-collapse" title="${collapsed ? 'Expand this card' : 'Collapse this card'}" aria-label="${collapsed ? 'Expand this card' : 'Collapse this card'}">${collapsed ? ICON_DOWN : ICON_UP}</button>`;
+  const isArmed = !!prefs.alertEnabled && alertAt != null;
+  const armHow = autoAt != null && prefs.alertAuto ? `payout − ${ALERT_LEAD}` : 'your number';
+  const armTip = isArmed ? `Alert armed at play ${alertAt} (${armHow}). Click to turn off.`
+                         : (alertAt != null ? `Alert off. Click to arm at play ${alertAt} (${armHow}).` : 'Alert off. No payout number yet: open the card to set a play number.');
+  const armBtn = collapsed ? `<button class="arm-toggle${isArmed ? ' on' : ''}" data-key="${key}" data-action="toggle-arm" title="${esc(armTip)}" aria-label="${esc(armTip)}" aria-pressed="${isArmed}">${isArmed ? '🔔' : '🔕'}</button>` : '';
   const staleBadge = server.prizeStale ? '<span class="stale-badge">Irrelevant prize</span>' : '';
   const winIso = server.lastAutoWin && server.lastAutoWin.time;
   const wonRecent = winIso && (Date.now() - new Date(winIso).getTime()) < WON_MINUTES * 60000;
@@ -1176,9 +1261,12 @@ function renderTrackedCard(server, prefs, key, prizes){
       <div class="card-row1">
         <span class="drag-handle" draggable="true" title="Drag to reorder, or drop into another section" aria-label="Drag handle">⋮⋮</span>
         <div class="card-prizes">${prizes.map(otherPrizeThumb).join('')}</div>
-        ${wonBadge}
-        ${staleBadge}
-        ${toggleBtn}
+        <div class="row1-right">
+          ${wonBadge}
+          ${staleBadge}
+          ${armBtn}
+          ${toggleBtn}
+        </div>
       </div>
       <div class="card-title">${nameEl}${afterTitle || ''}</div>
       <div class="card-row3">
@@ -1203,7 +1291,7 @@ function renderTrackedCard(server, prefs, key, prizes){
       <div class="play-alert-status ${prefs.alertEnabled && alertAt && !prefs.alertPlayFired ? 'armed' : ''}">
         ${!prefs.alertEnabled ? 'Off. Tick “On” for a sound alert.' :
           (!alertAt ? 'No payout to follow yet. Enter a play number and press Set.' :
-          (prefs.alertPlayFired ? `Fired at play ${alertAt}. ${autoAt != null ? 'Re-arms after the next win.' : 'Set a new target, or Clear for auto.'}` :
+          (prefs.alertPlayFired ? `Pinging on every play from ${alertAt} until the payout (now ${server.livePlays}).` :
           `Armed at play ${alertAt}${autoAt != null ? ` (payout ${server.threeClawPayout} − ${ALERT_LEAD})` : ' (your number)'} · now ${server.livePlays}.`))}
         <span class="muted">Only you get the sound.</span>
       </div>
@@ -1347,7 +1435,7 @@ document.getElementById('machines').addEventListener('input', (e) => {
       if(!Number.isInteger(v) || v < 1) return;   // invalid: Set / re-arm will explain
       prefs.alertPlayTarget = v; prefs.alertAuto = false;
     }
-    prefs.alertPlayFired = false;
+    prefs.alertPlayFired = false; prefs.alertLastPlays = null;
     savePrefs(); return;
   }
   if(field === 'name'){
@@ -1445,6 +1533,10 @@ document.getElementById('machines').addEventListener('click', (e) => {
   const action = e.target.dataset.action;
   if(!action) return;
 
+  if(action === 'section-up' || action === 'section-down'){
+    moveSectionBy(e.target.dataset.category, action === 'section-up' ? -1 : 1);
+    return;
+  }
   if(action === 'toggle-category'){
     const cat = e.target.dataset.category;
     const cp = getCategoryPrefs(cat);
@@ -1505,22 +1597,37 @@ document.getElementById('machines').addEventListener('click', (e) => {
   if(!server) return;
   const displayName = prefs.name || server.prizeTitleEn || server.prizeTitleJa || key;
 
+  if(action === 'toggle-arm'){
+    if(prefs.alertEnabled){
+      prefs.alertEnabled = false;
+    } else {
+      if(alertTarget(prefs, server) == null){
+        showToast('No payout number yet. Open this card to set a play number in its Alert section.');
+        return;
+      }
+      // arms at payout − ALERT_LEAD unless a number of your own was set
+      prefs.alertEnabled = true; prefs.alertPlayFired = false; prefs.alertLastPlays = null; prefs.alertLastPlays = null;
+    }
+    savePrefs();
+    if(prefs.alertEnabled) checkPlayCountAlert(prefs, server.livePlays, displayName, server);
+    render(); return;
+  }
   if(action === 'set-alert'){
     const input = document.querySelector(`input[data-key="${key}"][data-field="alertPlayTarget"]`);
     const raw = String((input && input.value) || '').trim();
     if(raw === ''){
       // Empty box = no number of your own, so follow the payout (auto) again.
-      prefs.alertPlayTarget = null; prefs.alertAuto = true; prefs.alertPlayFired = false;
+      prefs.alertPlayTarget = null; prefs.alertAuto = true; prefs.alertPlayFired = false; prefs.alertLastPlays = null;
       savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName, server); render(); return;
     }
     const v = Number(raw);
     if(!Number.isInteger(v) || v < 1){ alert('Enter a whole play number greater than 0, or leave the box empty to auto-set.'); return; }
-    prefs.alertPlayTarget = v; prefs.alertAuto = false; prefs.alertPlayFired = false;
+    prefs.alertPlayTarget = v; prefs.alertAuto = false; prefs.alertPlayFired = false; prefs.alertLastPlays = null;
     savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName, server); render(); return;
   }
   if(action === 'clear-alert'){
     // Back to auto: forget the typed number and follow payout - ALERT_LEAD again.
-    prefs.alertPlayTarget = null; prefs.alertAuto = true; prefs.alertPlayFired = false;
+    prefs.alertPlayTarget = null; prefs.alertAuto = true; prefs.alertPlayFired = false; prefs.alertLastPlays = null;
     savePrefs(); checkPlayCountAlert(prefs, server.livePlays, displayName, server); render(); return;
   }
   if(action === 'remove'){
@@ -1833,6 +1940,57 @@ setInterval(() => {
     if(Date.now() - new Date(el.dataset.t).getTime() >= WON_MINUTES * 60000) el.remove();
   });
 }, 30000);
+// Sections can be moved like cards: ▲ ▼ buttons, or drag the ⋮⋮ grip (shared with everyone).
+function moveSectionBy(category, delta){
+  const order = currentCategories.slice();
+  const i = order.indexOf(category), j = i + delta;
+  if(i < 0 || j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  sendLayout({categoryOrder: order});
+  render();
+}
+let dragSection = null;
+function endSectionDrag(){
+  dragSection = null;
+  machinesRoot.querySelectorAll('.sdrop-before,.sdrop-after,.sdragging').forEach(el => el.classList.remove('sdrop-before', 'sdrop-after', 'sdragging'));
+}
+function sectionBefore(sec, e){
+  const r = sec.getBoundingClientRect();
+  return e.clientY < r.top + r.height / 2;
+}
+machinesRoot.addEventListener('dragstart', (e) => {
+  const h = e.target.closest && e.target.closest('.cat-handle');
+  if(!h) return;
+  const sec = h.closest('.cat-section');
+  if(!sec) return;
+  dragSection = sec.dataset.category;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragSection);
+  try{ e.dataTransfer.setDragImage(h.closest('.category-header'), 20, 20); }catch(_){}
+  setTimeout(() => sec.classList.add('sdragging'), 0);
+});
+machinesRoot.addEventListener('dragover', (e) => {
+  if(dragSection === null) return;
+  const sec = e.target.closest('.cat-section');
+  if(!sec || sec.dataset.category === dragSection) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  machinesRoot.querySelectorAll('.sdrop-before,.sdrop-after').forEach(el => el.classList.remove('sdrop-before', 'sdrop-after'));
+  sec.classList.add(sectionBefore(sec, e) ? 'sdrop-before' : 'sdrop-after');
+});
+machinesRoot.addEventListener('drop', (e) => {
+  if(dragSection === null) return;
+  const sec = e.target.closest('.cat-section');
+  if(!sec || sec.dataset.category === dragSection){ endSectionDrag(); return; }
+  e.preventDefault();
+  const moving = dragSection;
+  const order = currentCategories.filter(c => c !== moving);
+  order.splice(order.indexOf(sec.dataset.category) + (sectionBefore(sec, e) ? 0 : 1), 0, moving);
+  endSectionDrag();
+  sendLayout({categoryOrder: order});
+  render();
+});
+machinesRoot.addEventListener('dragend', endSectionDrag);
 </script>
 </body>
 </html>
