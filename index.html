@@ -393,7 +393,7 @@
     <span><span class="player-tag-farmer">farmer</span></span>
     <span><span class="player-unlisted">123456789</span> player ID shown = not in the player list</span>
     <span>Glowing outline = alert armed</span>
-    <span>Grey card = irrelevant prize (no longer on its machine)</span>
+    <span>Grey picture = irrelevant prize (no longer on its machine); grey card = every prize on it is irrelevant</span>
     <span>Numbers turn amber, orange, then red as plays near the payout</span>
     <span>🏆 Won badge = paid out in the last 10 minutes</span>
   </div>
@@ -1134,7 +1134,7 @@ function renderCategorySection(category, machines){
     const fw = flashWin[server.machineId];
     let flash = '';
     if(fw && !fw.shown){ fw.shown = true; flash = ' won-flash'; }
-    html += `<div class="machine${server.prizeStale ? ' alerting' : ''}${armed ? ' armed' : ''}${isCollapsed ? '' : ' expanded'}${flash}"${armed ? ' title="Alert armed"' : ''} data-machine="${escapeAttr(server.machineId)}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
+    html += `<div class="machine${(card.prizes.length && card.prizes.every(p => p.prizeStale)) ? ' alerting' : ''}${armed ? ' armed' : ''}${isCollapsed ? '' : ' expanded'}${flash}"${armed ? ' title="Alert armed"' : ''} data-machine="${escapeAttr(server.machineId)}">${renderTrackedCard(server, prefs, key, card.prizes)}</div>`;
   });
   html += '</div>';
   return html;
